@@ -1,0 +1,7 @@
+output_dir: "./output"
+log_level: "info"
+tool_server_port: 8765
+pcap:
+  snapshot_len: 65535
+  promiscuous: false
+  timeout_ms: 30
