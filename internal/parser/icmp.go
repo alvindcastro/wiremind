@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/google/gopacket"
@@ -137,17 +138,5 @@ func icmpv6TypeName(t, c uint8) string {
 }
 
 func icmpUnknown(t, c uint8) string {
-	return "Unknown(" + uint8Str(t) + "/" + uint8Str(c) + ")"
-}
-
-func uint8Str(n uint8) string {
-	if n == 0 {
-		return "0"
-	}
-	buf := make([]byte, 0, 3)
-	for n > 0 {
-		buf = append([]byte{byte('0' + n%10)}, buf...)
-		n /= 10
-	}
-	return string(buf)
+	return fmt.Sprintf("Unknown(%d/%d)", t, c)
 }

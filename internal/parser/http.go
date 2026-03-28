@@ -3,10 +3,10 @@ package parser
 import (
 	"bufio"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/google/gopacket"
@@ -188,7 +188,7 @@ func (s *httpStream) flowID() string {
 func flattenHeaders(h http.Header) map[string]string {
 	out := make(map[string]string, len(h))
 	for k, v := range h {
-		out[k] = fmt.Sprintf("%s", v)
+		out[k] = strings.Join(v, ", ")
 	}
 	return out
 }

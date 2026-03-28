@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
 
 	"wiremind/config"
 	"wiremind/internal/input"
@@ -107,18 +106,4 @@ func trackProtocol(stats *RawStats, pkt gopacket.Packet) {
 		return
 	}
 	stats.ProtocolCounts["unknown"]++
-}
-
-// hasLayer is a small helper used by extractors to check for a layer type.
-func hasLayer(pkt gopacket.Packet, t gopacket.LayerType) bool {
-	return pkt.Layer(t) != nil
-}
-
-// isTCPPort returns true if the packet's TCP src or dst port matches.
-func isTCPPort(pkt gopacket.Packet, port uint16) bool {
-	tcp, ok := pkt.Layer(layers.LayerTypeTCP).(*layers.TCP)
-	if !ok {
-		return false
-	}
-	return uint16(tcp.SrcPort) == port || uint16(tcp.DstPort) == port
 }
