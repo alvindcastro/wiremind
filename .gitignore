@@ -1,0 +1,18 @@
+# Binaries
+forensics
+forensics.exe
+
+# Output — generated every run, not source-controlled
+output/
+
+# IDE
+.idea/
+*.iml
+
+# Claude Code session files
+.claude/
+
+# Go
+*.test
+*.out
+vendor/
