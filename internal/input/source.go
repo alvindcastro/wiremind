@@ -1,7 +1,6 @@
 package input
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -12,16 +11,10 @@ import (
 type SourceType string
 
 const (
-	SourceFile     SourceType = "file"
-	SourceLive     SourceType = "live"
-	SourcePipe     SourceType = "pipe"
-	SourcePCAPNG   SourceType = "pcapng"
-	SourceSSH      SourceType = "ssh"
-	SourceAFPacket SourceType = "afpacket"
-	SourceZeek     SourceType = "zeek"
-	SourceS3       SourceType = "s3"
-	SourceVPC      SourceType = "vpc"
-	SourceKafka    SourceType = "kafka"
+	SourceFile   SourceType = "file"
+	SourcePCAPNG SourceType = "pcapng"
+	SourceLive   SourceType = "live"
+	SourcePipe   SourceType = "pipe"
 )
 
 // SourceMeta carries read-only metadata about an open source.
@@ -50,61 +43,27 @@ type PacketSource interface {
 	Close() error
 }
 
-// SourceConfig carries all possible configuration fields for any source.
+// SourceConfig carries configuration fields for all supported sources.
 // Each adapter reads only the fields it cares about.
 type SourceConfig struct {
 	// file / pcapng
 	FilePath string
 
-	// live / afpacket
+	// live
 	Interface string
-
-	// ssh
-	SSHHost      string
-	SSHUser      string
-	SSHInterface string
-	SSHKeyPath   string
-
-	// s3
-	S3Bucket string
-	S3Key    string
-
-	// vpc
-	VPCProvider string // "aws" | "azure" | "gcp"
-	VPCLogPath  string
-
-	// kafka
-	KafkaBrokers []string
-	KafkaTopic   string
-
-	// zeek
-	ZeekLogDir string
 }
 
-// NewPacketSource is the factory that maps a SourceType to its adapter.
-// All 10 source types are wired here; unimplemented ones return an error.
+// NewPacketSource maps a SourceType to its adapter implementation.
 func NewPacketSource(t SourceType, cfg SourceConfig) (PacketSource, error) {
 	switch t {
 	case SourceFile:
 		return newPCAPFileSource(cfg)
-	case SourceLive:
-		return nil, errors.New("input: live capture not yet implemented")
-	case SourcePipe:
-		return nil, errors.New("input: stdin/pipe source not yet implemented")
 	case SourcePCAPNG:
-		return nil, errors.New("input: pcapng source not yet implemented")
-	case SourceSSH:
-		return nil, errors.New("input: ssh remote capture not yet implemented")
-	case SourceAFPacket:
-		return nil, errors.New("input: af_packet source not yet implemented")
-	case SourceZeek:
-		return nil, errors.New("input: zeek log source not yet implemented")
-	case SourceS3:
-		return nil, errors.New("input: s3 source not yet implemented")
-	case SourceVPC:
-		return nil, errors.New("input: vpc flow log source not yet implemented")
-	case SourceKafka:
-		return nil, errors.New("input: kafka source not yet implemented")
+		return newPCAPNGSource(cfg)
+	case SourceLive:
+		return newLiveSource(cfg)
+	case SourcePipe:
+		return newPipeSource(cfg)
 	default:
 		return nil, fmt.Errorf("input: unknown source type %q", t)
 	}
