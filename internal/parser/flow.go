@@ -114,6 +114,33 @@ func canonicalID(srcIP, dstIP net.IP, srcPort, dstPort uint16, proto string) (
 	return fmt.Sprintf("%s-%s-%s", b, a, proto), dstIP, srcIP, dstPort, srcPort
 }
 
+// flowIDFromPacket derives the canonical flow ID from a packet's network and
+// transport layers. Returns an empty string for non-IP packets.
+// Used by all protocol extractors to tag events with a FlowID.
+func flowIDFromPacket(pkt gopacket.Packet) string {
+	nl := pkt.NetworkLayer()
+	if nl == nil {
+		return ""
+	}
+	srcIP := net.IP(nl.NetworkFlow().Src().Raw())
+	dstIP := net.IP(nl.NetworkFlow().Dst().Raw())
+
+	var srcPort, dstPort uint16
+	var proto string
+
+	switch tl := pkt.TransportLayer().(type) {
+	case *layers.TCP:
+		srcPort, dstPort, proto = uint16(tl.SrcPort), uint16(tl.DstPort), "TCP"
+	case *layers.UDP:
+		srcPort, dstPort, proto = uint16(tl.SrcPort), uint16(tl.DstPort), "UDP"
+	default:
+		proto = nl.LayerType().String()
+	}
+
+	id, _, _, _, _ := canonicalID(srcIP, dstIP, srcPort, dstPort, proto)
+	return id
+}
+
 // nextTCPState advances the TCP state machine for a flow given the flags in pkt.
 func nextTCPState(current models.FlowState, tcp *layers.TCP) models.FlowState {
 	switch {
