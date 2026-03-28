@@ -46,6 +46,7 @@ func Parse(src input.PacketSource, cfg *config.Config) ParseResult {
 	}
 
 	ft := newFlowTracker()
+	ha := newHTTPAssembler()
 	first := true
 
 	for pkt := range src.Packets() {
@@ -63,15 +64,13 @@ func Parse(src input.PacketSource, cfg *config.Config) ParseResult {
 
 		// --- extractors ----------------------------------------------------
 		ft.update(pkt)
+		ha.update(pkt) // feeds TCP segments into stream reassembler
 
 		if evt := extractDNS(pkt); evt != nil {
 			result.DNS = append(result.DNS, *evt)
 		}
 		if evt := extractTLS(pkt); evt != nil {
 			result.TLS = append(result.TLS, *evt)
-		}
-		if evt := extractHTTP(pkt); evt != nil {
-			result.HTTP = append(result.HTTP, *evt)
 		}
 		if evt := extractICMP(pkt); evt != nil {
 			result.ICMP = append(result.ICMP, *evt)
@@ -80,6 +79,7 @@ func Parse(src input.PacketSource, cfg *config.Config) ParseResult {
 
 	result.Stats.Duration = result.Stats.EndTime.Sub(result.Stats.StartTime)
 	result.Flows, result.FlowHealth = ft.results()
+	result.HTTP = ha.flush() // flush reassembled streams → HTTP events
 
 	slog.Info("parse complete",
 		"packets", result.Stats.TotalPackets,
