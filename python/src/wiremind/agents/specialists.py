@@ -1,0 +1,148 @@
+from typing import Dict, Any, List
+from wiremind.client import WiremindClient
+from wiremind.state import ForensicsState
+
+class DNSAgent:
+    def __init__(self, client: WiremindClient):
+        self.client = client
+
+    async def run(self, state: ForensicsState) -> Dict[str, Any]:
+        """
+        Analyzes DNS logs for potential threats.
+        """
+        dns_logs = await self.client.get_dns()
+        findings = []
+
+        # Analyze DNS queries
+        for log in dns_logs:
+            query = log.get("query", "")
+            # Basic DGA detection (placeholder for real logic)
+            if len(query) > 30 and "." in query:
+                findings.append({
+                    "type": "DNS_DGA_SUSPICION",
+                    "query": query,
+                    "confidence": 0.7,
+                    "details": "Long query string detected"
+                })
+
+            # Check for NXDOMAIN spikes (if status is available)
+            if log.get("status") == "NXDOMAIN":
+                 findings.append({
+                    "type": "DNS_NXDOMAIN",
+                    "query": query,
+                    "confidence": 0.5,
+                    "details": "Query resulted in NXDOMAIN"
+                })
+
+        return {"findings": findings}
+
+class TLSAgent:
+    def __init__(self, client: WiremindClient):
+        self.client = client
+
+    async def run(self, state: ForensicsState) -> Dict[str, Any]:
+        """
+        Analyzes TLS handshakes for anomalies.
+        """
+        tls_logs = await self.client.get_tls()
+        findings = []
+
+        for log in tls_logs:
+            sni = log.get("sni", "")
+            # Placeholder for SNI mismatch check
+            if sni and "google" in sni and log.get("dest_ip") != "8.8.8.8":
+                # Real check would involve IP reputation or ownership
+                pass
+
+            # Cipher suite analysis (check for weak/deprecated)
+            cipher = log.get("cipher_suite", "")
+            if cipher and "RC4" in cipher:
+                 findings.append({
+                    "type": "TLS_WEAK_CIPHER",
+                    "sni": sni,
+                    "cipher": cipher,
+                    "confidence": 0.9,
+                    "details": "Weak/deprecated cipher suite detected"
+                })
+
+        return {"findings": findings}
+
+class HTTPAgent:
+    def __init__(self, client: WiremindClient):
+        self.client = client
+
+    async def run(self, state: ForensicsState) -> Dict[str, Any]:
+        """
+        Analyzes HTTP requests for suspicious patterns.
+        """
+        http_logs = await self.client.get_http()
+        findings = []
+
+        for log in http_logs:
+            ua = log.get("user_agent", "")
+            # Unusual User-Agent strings
+            if ua and ("python-requests" in ua.lower() or "curl" in ua.lower()):
+                 findings.append({
+                    "type": "HTTP_CLI_AGENT",
+                    "user_agent": ua,
+                    "confidence": 0.4,
+                    "details": f"Command-line client detected: {ua}"
+                })
+
+        return {"findings": findings}
+
+class LateralMovementAgent:
+    def __init__(self, client: WiremindClient):
+        self.client = client
+
+    async def run(self, state: ForensicsState) -> Dict[str, Any]:
+        """
+        Analyzes internal flows for lateral movement signatures.
+        """
+        flows = await self.client.get_flows()
+        findings = []
+
+        for flow in flows:
+            # Check for internal-to-internal flows (assuming private RFC1918)
+            src_ip = flow.get("src_ip", "")
+            dest_ip = flow.get("dest_ip", "")
+            
+            # Simple private IP check (placeholder)
+            if src_ip.startswith(("10.", "192.168.", "172.")):
+                if dest_ip.startswith(("10.", "192.168.", "172.")):
+                    # Potential lateral movement if port is sensitive
+                    port = flow.get("dest_port")
+                    if port in [445, 135, 139]: # SMB/RPC
+                         findings.append({
+                            "type": "LATERAL_MOVEMENT_SMB",
+                            "src_ip": src_ip,
+                            "dest_ip": dest_ip,
+                            "confidence": 0.6,
+                            "details": f"Internal SMB flow: {src_ip} -> {dest_ip}"
+                        })
+
+        return {"findings": findings}
+
+class BeaconingAgent:
+    def __init__(self, client: WiremindClient):
+        self.client = client
+
+    async def run(self, state: ForensicsState) -> Dict[str, Any]:
+        """
+        Validates beaconing scores from the Go engine.
+        """
+        flows = await self.client.get_flows()
+        findings = []
+
+        for flow in flows:
+            enriched = flow.get("enriched", {})
+            if enriched.get("beacon"):
+                findings.append({
+                    "type": "C2_BEACONING",
+                    "src_ip": flow.get("src_ip"),
+                    "dest_ip": flow.get("dest_ip"),
+                    "confidence": enriched.get("beacon_score", 0.8),
+                    "details": "Consistent jitter detected in flow"
+                })
+
+        return {"findings": findings}
