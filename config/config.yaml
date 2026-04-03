@@ -5,3 +5,6 @@ pcap:
   snapshot_len: 65535
   promiscuous: false
   timeout_ms: 30
+geoip:
+  city_db_path: "./data/GeoLite2-City.mmdb"
+  asn_db_path: "./data/GeoLite2-ASN.mmdb"
