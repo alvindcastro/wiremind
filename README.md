@@ -10,7 +10,7 @@ Wiremind ingests network traffic from any source and runs a team of specialized 
 
 ✅ **Phase 1 complete** — Go input adapters + PCAP parser
 ✅ **Phase 2 complete** — Enrichment pipeline, PostgreSQL store, & Go API Server
-🚧 **Phase 3 pending** — LangGraph AI Agents (Python)
+🚧 **Phase 3 pending** — [LangGraph AI Agents (Python)](PHASE3.md)
 
 ---
 
@@ -18,7 +18,7 @@ Wiremind ingests network traffic from any source and runs a team of specialized 
 
 | Layer | Technology |
 |---|---|
-| Packet capture & parsing | Go · gopacket · libpcap |
+| Packet capture & parsing | Go · gopacket · libpcap · **ssh** · **s3** · **vpc-logs** |
 | Agent framework | LangGraph · Python |
 | LLM | Anthropic Claude |
 | Workflow automation | n8n |

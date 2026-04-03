@@ -48,6 +48,14 @@ type PostgresConfig struct {
 	SSLMode  string `yaml:"ssl_mode"`
 }
 
+type RedisConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
+}
+
 type Config struct {
 	OutputDir      string            `yaml:"output_dir"`
 	LogLevel       string            `yaml:"log_level"`
@@ -57,6 +65,7 @@ type Config struct {
 	IOC            IOCConfig         `yaml:"ioc"`
 	ThreatIntel    ThreatIntelConfig `yaml:"threat_intel"`
 	Postgres       PostgresConfig    `yaml:"postgres"`
+	Redis          RedisConfig       `yaml:"redis"`
 }
 
 func Load(path string) (*Config, error) {
@@ -112,6 +121,25 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("DB_ENABLED"); v != "" {
 		cfg.Postgres.Enabled = (v == "true" || v == "1")
+	}
+	if v := os.Getenv("REDIS_HOST"); v != "" {
+		cfg.Redis.Host = v
+	}
+	if v := os.Getenv("REDIS_PORT"); v != "" {
+		if port, err := strconv.Atoi(v); err == nil {
+			cfg.Redis.Port = port
+		}
+	}
+	if v := os.Getenv("REDIS_PASSWORD"); v != "" {
+		cfg.Redis.Password = v
+	}
+	if v := os.Getenv("REDIS_DB"); v != "" {
+		if db, err := strconv.Atoi(v); err == nil {
+			cfg.Redis.DB = db
+		}
+	}
+	if v := os.Getenv("REDIS_ENABLED"); v != "" {
+		cfg.Redis.Enabled = (v == "true" || v == "1")
 	}
 	if v := os.Getenv("VIRUSTOTAL_API_KEY"); v != "" {
 		// keys are used directly from env in enrichment/threatintel.go

@@ -29,3 +29,9 @@ postgres:
   password: "password"
   dbname: "wiremind"
   ssl_mode: "disable"
+redis:
+  enabled: false
+  host: "localhost"
+  port: 6379
+  password: ""
+  db: 0
