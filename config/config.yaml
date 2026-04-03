@@ -8,3 +8,13 @@ pcap:
 geoip:
   city_db_path: "./data/GeoLite2-City.mmdb"
   asn_db_path: "./data/GeoLite2-ASN.mmdb"
+ioc:
+  sources:
+    - path: "./data/ioc/feodo-tracker-ips.txt"
+      source: "feodo-tracker"
+      type: "ip"
+      severity: "high"
+    - path: "./data/ioc/abuse-ch-domains.txt"
+      source: "abuse.ch"
+      type: "domain"
+      severity: "high"

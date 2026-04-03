@@ -19,12 +19,27 @@ type GeoIPConfig struct {
 	ASNDBPath  string `yaml:"asn_db_path"`  // path to GeoLite2-ASN.mmdb (optional)
 }
 
+// IOCSourceConfig describes one blocklist file to load at startup.
+// Type must be "ip", "domain", or "hash".
+// Severity must be "low", "medium", "high", or "critical".
+type IOCSourceConfig struct {
+	Path     string `yaml:"path"`
+	Source   string `yaml:"source"`   // e.g. "feodo-tracker", "abuse.ch", "custom"
+	Type     string `yaml:"type"`     // "ip" | "domain" | "hash"
+	Severity string `yaml:"severity"` // "low" | "medium" | "high" | "critical"
+}
+
+type IOCConfig struct {
+	Sources []IOCSourceConfig `yaml:"sources"`
+}
+
 type Config struct {
 	OutputDir      string      `yaml:"output_dir"`
 	LogLevel       string      `yaml:"log_level"`
 	ToolServerPort int         `yaml:"tool_server_port"`
 	PCAP           PCAPConfig  `yaml:"pcap"`
 	GeoIP          GeoIPConfig `yaml:"geoip"`
+	IOC            IOCConfig   `yaml:"ioc"`
 }
 
 func Load(path string) (*Config, error) {
