@@ -5,11 +5,15 @@ import os
 from wiremind.client import WiremindClient
 from wiremind.agents.orchestrator import Orchestrator
 from wiremind.state import ForensicsState
+from wiremind.logger import configure_logger, get_logger
+
+logger = get_logger("wiremind.main")
 
 async def run_analysis(base_url: str, flow_id: str = None):
     """
     Run a full forensics analysis using the AI orchestrator.
     """
+    configure_logger()
     client = WiremindClient(base_url)
     orchestrator = Orchestrator(client)
     
@@ -22,26 +26,22 @@ async def run_analysis(base_url: str, flow_id: str = None):
         next_agent="orchestrator"
     )
     
-    print(f"[*] Starting AI analysis for flow: {flow_id if flow_id else 'All'}")
-    print(f"[*] Connecting to API at: {base_url}")
+    logger.info("starting_ai_analysis", flow_id=flow_id, api_url=base_url)
     
     try:
         # Run the orchestrator
-        # Note: In a real scenario, this would loop or use LangGraph's .invoke()
-        # For the CLI entry point, we use a simplified invocation
         final_state = await orchestrator.run(initial_state)
         
-        print("\n[+] Analysis Complete!")
-        print(f"[+] Total Findings: {len(final_state['findings'])}")
+        logger.info("analysis_complete", findings_count=len(final_state['findings']))
         
         for finding in final_state['findings']:
             severity = finding.get('severity', 'UNKNOWN')
             agent = finding.get('agent', 'Unknown')
             description = finding.get('description', 'No description')
-            print(f"  [{severity}] {agent}: {description}")
+            logger.info("finding_detected", severity=severity, agent=agent, description=description)
             
     except Exception as e:
-        print(f"[!] Error during analysis: {e}")
+        logger.error("analysis_failed", error=str(e))
         sys.exit(1)
 
 def main():

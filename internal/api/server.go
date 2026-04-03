@@ -46,6 +46,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /api/v1/http", s.handleHTTP)
 	mux.HandleFunc("GET /api/v1/icmp", s.handleICMP)
 	mux.HandleFunc("GET /api/v1/stats", s.handleStats)
+	mux.HandleFunc("GET /health", s.handleHealth)
 
 	addr := ":" + strconv.Itoa(s.cfg.ToolServerPort)
 	slog.Info("api server starting", "addr", addr)
@@ -109,6 +110,28 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		"icmp":  len(s.results.ICMP),
 	}
 	s.writeJSON(w, stats)
+}
+
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	health := map[string]string{
+		"status": "up",
+	}
+
+	if s.cfg.Postgres.Enabled {
+		if s.store != nil {
+			if err := s.store.Ping(); err != nil {
+				health["postgres"] = "down"
+				health["status"] = "degraded"
+			} else {
+				health["postgres"] = "up"
+			}
+		} else {
+			health["postgres"] = "not_initialized"
+			health["status"] = "degraded"
+		}
+	}
+
+	s.writeJSON(w, health)
 }
 
 func (s *Server) writeJSON(w http.ResponseWriter, v any) {

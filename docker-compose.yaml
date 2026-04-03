@@ -1,0 +1,73 @@
+services:
+  # Go API & Parser Service
+  forensics:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8765:8765"
+    environment:
+      - DB_ENABLED=true
+      - DB_HOST=postgres
+      - DB_USER=postgres
+      - DB_PASSWORD=wiremind_pass
+      - DB_NAME=wiremind
+      - REDIS_ENABLED=true
+      - REDIS_HOST=redis
+    depends_on:
+      - postgres
+      - redis
+    command: ["parse", "--serve"]
+
+  # Go Background Worker
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - DB_ENABLED=true
+      - DB_HOST=postgres
+      - DB_USER=postgres
+      - DB_PASSWORD=wiremind_pass
+      - DB_NAME=wiremind
+      - REDIS_ENABLED=true
+      - REDIS_HOST=redis
+    depends_on:
+      - postgres
+      - redis
+    command: ["worker"]
+
+  # Python AI Agents
+  agents:
+    build:
+      context: ./python
+      dockerfile: Dockerfile
+    environment:
+      - WIREMIND_API_URL=http://forensics:8765
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    depends_on:
+      - forensics
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=wiremind_pass
+      - POSTGRES_DB=wiremind
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Redis Queue
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:

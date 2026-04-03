@@ -134,6 +134,15 @@ func (s *PostgresStore) GetFlows(limit int) ([]models.EnrichedFlow, error) {
 	return flows, err
 }
 
+// Ping checks if the database is reachable.
+func (s *PostgresStore) Ping() error {
+	sqlDB, err := s.db.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.Ping()
+}
+
 // Close closes the database connection.
 func (s *PostgresStore) Close() error {
 	sqlDB, err := s.db.DB()
