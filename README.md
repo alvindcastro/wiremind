@@ -10,7 +10,8 @@ Wiremind ingests network traffic from any source and runs a team of specialized 
 
 ✅ **Phase 1 complete** — Go input adapters + PCAP parser
 ✅ **Phase 2 complete** — Enrichment pipeline, PostgreSQL store, & Go API Server
-🚧 **Phase 3 pending** — [LangGraph AI Agents (Python)](PHASE3.md)
+✅ **Phase 3 complete** — [LangGraph AI Agents (Python)](PHASE3.md)
+🚧 **Phase 8 in progress** — [Productionization, Observability & Refinement](PHASE8.md)
 💡 **[API Expansion Roadmap](API_PLAN.md)** — Jobs, Search, Config
 💡 **[Future roadmap](NICE_TO_HAVE.md)** — AI/UX feature backlog
 

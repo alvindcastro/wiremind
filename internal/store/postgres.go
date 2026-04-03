@@ -49,6 +49,7 @@ func NewPostgresStore(cfg config.PostgresConfig) (*PostgresStore, error) {
 // AutoMigrate ensures all tables exist and match the GORM models.
 func (s *PostgresStore) AutoMigrate() error {
 	return s.db.AutoMigrate(
+		&models.Job{},
 		&models.Flow{},
 		&models.FlowHealth{},
 		&models.DNSEvent{},
@@ -63,6 +64,25 @@ func (s *PostgresStore) AutoMigrate() error {
 		&models.Entity{},
 		&models.EntityObservation{},
 	)
+}
+
+// SaveJob persists a job record.
+func (s *PostgresStore) SaveJob(job *models.Job) error {
+	return s.db.Save(job).Error
+}
+
+// GetJob retrieves a job by ID.
+func (s *PostgresStore) GetJob(id string) (*models.Job, error) {
+	var job models.Job
+	err := s.db.First(&job, "id = ?", id).Error
+	return &job, err
+}
+
+// GetJobs retrieves all jobs with optional limit.
+func (s *PostgresStore) GetJobs(limit int) ([]models.Job, error) {
+	var jobs []models.Job
+	err := s.db.Limit(limit).Order("created_at desc").Find(&jobs).Error
+	return jobs, err
 }
 
 // SaveEnrichedResult persists a batch of enriched forensics data.

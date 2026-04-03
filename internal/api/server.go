@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -8,12 +9,28 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"wiremind/config"
 	"wiremind/internal/enrichment"
+	"wiremind/internal/models"
+	"wiremind/internal/queue"
 	"wiremind/internal/store"
+)
+
+var (
+	requestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "wiremind_api_requests_total",
+		Help: "Total number of HTTP requests to the Wiremind API",
+	}, []string{"method", "endpoint", "status"})
+
+	requestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "wiremind_api_request_duration_seconds",
+		Help:    "Duration of HTTP requests to the Wiremind API in seconds",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"method", "endpoint"})
 )
 
 // Server provides a JSON API for retrieving enriched forensics results.
@@ -21,33 +38,22 @@ type Server struct {
 	cfg      *config.Config
 	pipeline *enrichment.Pipeline
 	store    *store.PostgresStore
-	results  enrichment.EnrichedResult
-	mu       sync.RWMutex
-
-	// Metrics
-	requestsTotal   *prometheus.CounterVec
-	requestDuration *prometheus.HistogramVec
+	queue    interface {
+		PublishJob(context.Context, queue.Job) error
+	}
+	results enrichment.EnrichedResult
+	mu      sync.RWMutex
 }
 
-func NewServer(cfg *config.Config, p *enrichment.Pipeline, s *store.PostgresStore) *Server {
-	srv := &Server{
+func NewServer(cfg *config.Config, p *enrichment.Pipeline, s *store.PostgresStore, q interface {
+	PublishJob(context.Context, queue.Job) error
+}) *Server {
+	return &Server{
 		cfg:      cfg,
 		pipeline: p,
 		store:    s,
+		queue:    q,
 	}
-
-	srv.requestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "wiremind_api_requests_total",
-		Help: "Total number of HTTP requests to the Wiremind API",
-	}, []string{"method", "endpoint", "status"})
-
-	srv.requestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "wiremind_api_request_duration_seconds",
-		Help:    "Duration of HTTP requests to the Wiremind API in seconds",
-		Buckets: prometheus.DefBuckets,
-	}, []string{"method", "endpoint"})
-
-	return srv
 }
 
 // UpdateResults replaces the current in-memory dataset with a new enriched result.
@@ -62,6 +68,9 @@ func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /api/v1/flows", s.instrument("flows", s.handleFlows))
+	mux.HandleFunc("GET /api/v1/jobs", s.instrument("list_jobs", s.handleListJobs))
+	mux.HandleFunc("POST /api/v1/jobs", s.instrument("submit_job", s.handleSubmitJob))
+	mux.HandleFunc("GET /api/v1/jobs/{id}", s.instrument("get_job", s.handleGetJob))
 	mux.HandleFunc("GET /api/v1/dns", s.instrument("dns", s.handleDNS))
 	mux.HandleFunc("GET /api/v1/tls", s.instrument("tls", s.handleTLS))
 	mux.HandleFunc("GET /api/v1/http", s.instrument("http", s.handleHTTP))
@@ -83,8 +92,8 @@ func (s *Server) instrument(endpoint string, handler http.HandlerFunc) http.Hand
 
 		defer func() {
 			duration := time.Since(start).Seconds()
-			s.requestDuration.WithLabelValues(r.Method, endpoint).Observe(duration)
-			s.requestsTotal.WithLabelValues(r.Method, endpoint, strconv.Itoa(rw.status)).Inc()
+			requestDuration.WithLabelValues(r.Method, endpoint).Observe(duration)
+			requestsTotal.WithLabelValues(r.Method, endpoint, strconv.Itoa(rw.status)).Inc()
 		}()
 
 		handler(rw, r)
@@ -157,6 +166,100 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		"icmp":  len(s.results.ICMP),
 	}
 	s.writeJSON(w, stats)
+}
+
+func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
+	if s.store == nil {
+		http.Error(w, "persistence disabled", http.StatusNotImplemented)
+		return
+	}
+
+	limit := 50
+	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 {
+		limit = l
+	}
+
+	jobs, err := s.store.GetJobs(limit)
+	if err != nil {
+		http.Error(w, "database error", http.StatusInternalServerError)
+		return
+	}
+	s.writeJSON(w, jobs)
+}
+
+func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
+	if s.store == nil {
+		http.Error(w, "persistence disabled", http.StatusNotImplemented)
+		return
+	}
+
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "missing job id", http.StatusBadRequest)
+		return
+	}
+
+	job, err := s.store.GetJob(id)
+	if err != nil {
+		http.Error(w, "job not found", http.StatusNotFound)
+		return
+	}
+	s.writeJSON(w, job)
+}
+
+func (s *Server) handleSubmitJob(w http.ResponseWriter, r *http.Request) {
+	if s.queue == nil {
+		http.Error(w, "async queue disabled", http.StatusNotImplemented)
+		return
+	}
+
+	var req struct {
+		InputPath  string `json:"input_path"`
+		OutputPath string `json:"output_path"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.InputPath == "" {
+		http.Error(w, "input_path is required", http.StatusBadRequest)
+		return
+	}
+
+	jobID := uuid.New().String()
+	job := queue.Job{
+		ID:         jobID,
+		InputPath:  req.InputPath,
+		OutputPath: req.OutputPath,
+		CreatedAt:  time.Now(),
+	}
+
+	// Persist job as pending if DB enabled
+	if s.store != nil {
+		dbJob := &models.Job{
+			ID:         job.ID,
+			InputPath:  job.InputPath,
+			OutputPath: job.OutputPath,
+			Status:     models.JobPending,
+			CreatedAt:  job.CreatedAt,
+		}
+		if err := s.store.SaveJob(dbJob); err != nil {
+			slog.Error("failed to persist job status", "err", err, "job_id", jobID)
+		}
+	}
+
+	if err := s.queue.PublishJob(r.Context(), job); err != nil {
+		slog.Error("failed to publish job", "err", err, "job_id", jobID)
+		http.Error(w, "failed to enqueue job", http.StatusInternalServerError)
+		return
+	}
+
+	s.writeJSON(w, map[string]string{
+		"job_id": jobID,
+		"status": "pending",
+	})
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

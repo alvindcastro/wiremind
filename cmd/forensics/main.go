@@ -202,7 +202,17 @@ func runParse(cmd *cobra.Command, args []string) error {
 	)
 
 	if flagServe {
-		srv := api.NewServer(cfg, ep, db)
+		var q *queue.RedisQueue
+		if cfg.Redis.Enabled {
+			q, err = queue.NewRedisQueue(cfg.Redis)
+			if err != nil {
+				slog.Warn("failed to connect to redis, async submission disabled", "err", err)
+			} else {
+				defer q.Close()
+			}
+		}
+
+		srv := api.NewServer(cfg, ep, db, q)
 		srv.UpdateResults(enriched)
 		return srv.Start()
 	}
@@ -273,6 +283,14 @@ func runWorker(cmd *cobra.Command, args []string) error {
 
 			slog.Info("processing job", "job_id", job.ID, "file", job.InputPath)
 
+			// Update job status to processing
+			if db != nil {
+				if j, err := db.GetJob(job.ID); err == nil {
+					j.Status = models.JobProcessing
+					_ = db.SaveJob(j)
+				}
+			}
+
 			// Process job (simplified version of runParse logic)
 			src, err := input.NewPacketSource(input.SourceFile, input.SourceConfig{
 				FilePath: job.InputPath,
@@ -307,6 +325,14 @@ func runWorker(cmd *cobra.Command, args []string) error {
 			if db != nil {
 				if err := output.WriteToPostgres(enriched, db); err != nil {
 					slog.Error("failed to persist to postgres", "err", err, "job_id", job.ID)
+				}
+
+				// Update job status to completed
+				if j, err := db.GetJob(job.ID); err == nil {
+					j.Status = models.JobCompleted
+					j.PacketCount = result.Stats.TotalPackets
+					j.FlowCount = len(result.Flows)
+					_ = db.SaveJob(j)
 				}
 			}
 
