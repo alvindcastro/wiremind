@@ -6,7 +6,11 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"wiremind/config"
 	"wiremind/internal/enrichment"
 	"wiremind/internal/store"
@@ -19,14 +23,31 @@ type Server struct {
 	store    *store.PostgresStore
 	results  enrichment.EnrichedResult
 	mu       sync.RWMutex
+
+	// Metrics
+	requestsTotal   *prometheus.CounterVec
+	requestDuration *prometheus.HistogramVec
 }
 
 func NewServer(cfg *config.Config, p *enrichment.Pipeline, s *store.PostgresStore) *Server {
-	return &Server{
+	srv := &Server{
 		cfg:      cfg,
 		pipeline: p,
 		store:    s,
 	}
+
+	srv.requestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "wiremind_api_requests_total",
+		Help: "Total number of HTTP requests to the Wiremind API",
+	}, []string{"method", "endpoint", "status"})
+
+	srv.requestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "wiremind_api_request_duration_seconds",
+		Help:    "Duration of HTTP requests to the Wiremind API in seconds",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"method", "endpoint"})
+
+	return srv
 }
 
 // UpdateResults replaces the current in-memory dataset with a new enriched result.
@@ -40,18 +61,44 @@ func (s *Server) UpdateResults(res enrichment.EnrichedResult) {
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /api/v1/flows", s.handleFlows)
-	mux.HandleFunc("GET /api/v1/dns", s.handleDNS)
-	mux.HandleFunc("GET /api/v1/tls", s.handleTLS)
-	mux.HandleFunc("GET /api/v1/http", s.handleHTTP)
-	mux.HandleFunc("GET /api/v1/icmp", s.handleICMP)
-	mux.HandleFunc("GET /api/v1/stats", s.handleStats)
+	mux.HandleFunc("GET /api/v1/flows", s.instrument("flows", s.handleFlows))
+	mux.HandleFunc("GET /api/v1/dns", s.instrument("dns", s.handleDNS))
+	mux.HandleFunc("GET /api/v1/tls", s.instrument("tls", s.handleTLS))
+	mux.HandleFunc("GET /api/v1/http", s.instrument("http", s.handleHTTP))
+	mux.HandleFunc("GET /api/v1/icmp", s.instrument("icmp", s.handleICMP))
+	mux.HandleFunc("GET /api/v1/stats", s.instrument("stats", s.handleStats))
 	mux.HandleFunc("GET /health", s.handleHealth)
+	mux.Handle("GET /metrics", promhttp.Handler())
 
 	addr := ":" + strconv.Itoa(s.cfg.ToolServerPort)
 	slog.Info("api server starting", "addr", addr)
 
 	return http.ListenAndServe(addr, mux)
+}
+
+func (s *Server) instrument(endpoint string, handler http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
+
+		defer func() {
+			duration := time.Since(start).Seconds()
+			s.requestDuration.WithLabelValues(r.Method, endpoint).Observe(duration)
+			s.requestsTotal.WithLabelValues(r.Method, endpoint, strconv.Itoa(rw.status)).Inc()
+		}()
+
+		handler(rw, r)
+	}
+}
+
+type responseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.status = code
+	rw.ResponseWriter.WriteHeader(code)
 }
 
 func (s *Server) handleFlows(w http.ResponseWriter, r *http.Request) {

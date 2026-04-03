@@ -35,3 +35,8 @@ redis:
   port: 6379
   password: ""
   db: 0
+sentry:
+  enabled: false
+  dsn: ""
+  environment: "production"
+  release: "1.0.0"

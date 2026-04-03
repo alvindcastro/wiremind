@@ -56,6 +56,13 @@ type RedisConfig struct {
 	DB       int    `yaml:"db"`
 }
 
+type SentryConfig struct {
+	DSN         string `yaml:"dsn"`
+	Environment string `yaml:"environment"`
+	Release     string `yaml:"release"`
+	Enabled     bool   `yaml:"enabled"`
+}
+
 type Config struct {
 	OutputDir      string            `yaml:"output_dir"`
 	LogLevel       string            `yaml:"log_level"`
@@ -66,6 +73,7 @@ type Config struct {
 	ThreatIntel    ThreatIntelConfig `yaml:"threat_intel"`
 	Postgres       PostgresConfig    `yaml:"postgres"`
 	Redis          RedisConfig       `yaml:"redis"`
+	Sentry         SentryConfig      `yaml:"sentry"`
 }
 
 func Load(path string) (*Config, error) {
@@ -140,6 +148,18 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("REDIS_ENABLED"); v != "" {
 		cfg.Redis.Enabled = (v == "true" || v == "1")
+	}
+	if v := os.Getenv("SENTRY_DSN"); v != "" {
+		cfg.Sentry.DSN = v
+	}
+	if v := os.Getenv("SENTRY_ENVIRONMENT"); v != "" {
+		cfg.Sentry.Environment = v
+	}
+	if v := os.Getenv("SENTRY_RELEASE"); v != "" {
+		cfg.Sentry.Release = v
+	}
+	if v := os.Getenv("SENTRY_ENABLED"); v != "" {
+		cfg.Sentry.Enabled = (v == "true" || v == "1")
 	}
 	if v := os.Getenv("VIRUSTOTAL_API_KEY"); v != "" {
 		// keys are used directly from env in enrichment/threatintel.go

@@ -60,6 +60,8 @@ func (s *PostgresStore) AutoMigrate() error {
 		&models.EnrichedHTTPEvent{},
 		&models.EnrichedTLSEvent{},
 		&models.EnrichedICMPEvent{},
+		&models.Entity{},
+		&models.EntityObservation{},
 	)
 }
 

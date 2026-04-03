@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
@@ -26,6 +27,22 @@ import (
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
+	}
+}
+
+func initSentry(cfg config.SentryConfig) {
+	if !cfg.Enabled {
+		return
+	}
+	err := sentry.Init(sentry.ClientOptions{
+		Dsn:         cfg.DSN,
+		Environment: cfg.Environment,
+		Release:     cfg.Release,
+	})
+	if err != nil {
+		slog.Error("sentry.Init failed", "err", err)
+	} else {
+		slog.Info("sentry initialized")
 	}
 }
 
@@ -83,6 +100,9 @@ func runParse(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
+
+	initSentry(cfg.Sentry)
+	defer sentry.Flush(2 * time.Second)
 
 	// honour --output flag over config value
 	if flagOutput != "" {
@@ -200,6 +220,9 @@ func runWorker(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
+
+	initSentry(cfg.Sentry)
+	defer sentry.Flush(2 * time.Second)
 
 	if !cfg.Redis.Enabled {
 		return fmt.Errorf("redis must be enabled for worker mode")
