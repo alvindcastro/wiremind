@@ -1,10 +1,12 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from wiremind.client import WiremindClient
 from wiremind.state import ForensicsState
+from wiremind.knowledge.consultant import SecurityConsultant
 
 class DNSAgent:
-    def __init__(self, client: WiremindClient):
+    def __init__(self, client: WiremindClient, consultant: Optional[SecurityConsultant] = None):
         self.client = client
+        self.consultant = consultant
 
     async def run(self, state: ForensicsState) -> Dict[str, Any]:
         """
@@ -18,12 +20,18 @@ class DNSAgent:
             query = log.get("query", "")
             # Basic DGA detection (placeholder for real logic)
             if len(query) > 30 and "." in query:
-                findings.append({
+                finding = {
                     "type": "DNS_DGA_SUSPICION",
                     "query": query,
                     "confidence": 0.7,
                     "details": "Long query string detected"
-                })
+                }
+                
+                # Enrich with MITRE context if consultant is available
+                if self.consultant:
+                    finding["mitre_context"] = self.consultant.search_mitre("DNS tunneling " + query, k=1)
+                
+                findings.append(finding)
 
             # Check for NXDOMAIN spikes (if status is available)
             if log.get("status") == "NXDOMAIN":
@@ -37,8 +45,9 @@ class DNSAgent:
         return {"findings": findings}
 
 class TLSAgent:
-    def __init__(self, client: WiremindClient):
+    def __init__(self, client: WiremindClient, consultant: Optional[SecurityConsultant] = None):
         self.client = client
+        self.consultant = consultant
 
     async def run(self, state: ForensicsState) -> Dict[str, Any]:
         """
@@ -68,8 +77,9 @@ class TLSAgent:
         return {"findings": findings}
 
 class HTTPAgent:
-    def __init__(self, client: WiremindClient):
+    def __init__(self, client: WiremindClient, consultant: Optional[SecurityConsultant] = None):
         self.client = client
+        self.consultant = consultant
 
     async def run(self, state: ForensicsState) -> Dict[str, Any]:
         """
@@ -92,8 +102,9 @@ class HTTPAgent:
         return {"findings": findings}
 
 class LateralMovementAgent:
-    def __init__(self, client: WiremindClient):
+    def __init__(self, client: WiremindClient, consultant: Optional[SecurityConsultant] = None):
         self.client = client
+        self.consultant = consultant
 
     async def run(self, state: ForensicsState) -> Dict[str, Any]:
         """
@@ -124,8 +135,9 @@ class LateralMovementAgent:
         return {"findings": findings}
 
 class BeaconingAgent:
-    def __init__(self, client: WiremindClient):
+    def __init__(self, client: WiremindClient, consultant: Optional[SecurityConsultant] = None):
         self.client = client
+        self.consultant = consultant
 
     async def run(self, state: ForensicsState) -> Dict[str, Any]:
         """
