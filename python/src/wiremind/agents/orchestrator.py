@@ -4,6 +4,8 @@ from langgraph.graph import StateGraph, END
 from wiremind.state import ForensicsState
 from wiremind.client import WiremindClient
 from wiremind.agents.specialists import DNSAgent, TLSAgent, HTTPAgent, LateralMovementAgent, BeaconingAgent
+from wiremind.agents.correlation import AttackChainConstructor
+from wiremind.agents.reporting import SummaryGenerator
 from wiremind.knowledge.consultant import SecurityConsultant
 
 class Orchestrator:
@@ -19,6 +21,8 @@ class Orchestrator:
         self.http_agent = HTTPAgent(client, consultant)
         self.lateral_agent = LateralMovementAgent(client, consultant)
         self.beacon_agent = BeaconingAgent(client, consultant)
+        self.correlation_agent = AttackChainConstructor()
+        self.reporting_agent = SummaryGenerator()
 
     def _should_continue(self, state: ForensicsState) -> Literal["dns", "tls", "http", "lateral", "beacon", "end"]:
         """
@@ -68,6 +72,18 @@ class Orchestrator:
         state["findings"].extend(result["findings"])
         return state
 
+    async def call_correlation(self, state: ForensicsState) -> ForensicsState:
+        chain = self.correlation_agent.construct(state["findings"])
+        state["evidence"]["attack_chain"] = chain.model_dump()
+        return state
+
+    async def call_reporting(self, state: ForensicsState) -> ForensicsState:
+        # Re-construct chain from evidence if needed, or we could pass it in state
+        from wiremind.agents.correlation import AttackChain
+        chain = AttackChain(**state["evidence"]["attack_chain"])
+        state["summary"] = self.reporting_agent.generate_summary(chain)
+        return state
+
     def create_graph(self):
         """Creates the LangGraph workflow."""
         workflow = StateGraph(ForensicsState)
@@ -78,6 +94,8 @@ class Orchestrator:
         workflow.add_node("http", self.call_http)
         workflow.add_node("lateral", self.call_lateral)
         workflow.add_node("beacon", self.call_beacon)
+        workflow.add_node("correlation", self.call_correlation)
+        workflow.add_node("reporting", self.call_reporting)
 
         # Build graph
         workflow.set_entry_point("dns") # Start with DNS usually
@@ -86,20 +104,31 @@ class Orchestrator:
         workflow.add_edge("tls", "http")
         workflow.add_edge("http", "lateral")
         workflow.add_edge("lateral", "beacon")
-        workflow.add_edge("beacon", END)
+        workflow.add_edge("beacon", "correlation")
+        workflow.add_edge("correlation", "reporting")
+        workflow.add_edge("reporting", END)
 
         return workflow.compile()
 
     async def run(self, initial_state: Optional[ForensicsState] = None) -> ForensicsState:
         """Executes the orchestrator graph."""
         if initial_state is None:
-            initial_state = {
-                "findings": [],
-                "evidence": {},
-                "mitre_mapping": {},
-                "pending_tasks": ["initial_analysis"]
-            }
+            initial_state = ForensicsState(
+                findings=[],
+                flows=[],
+                current_task="initial_analysis",
+                evidence={},
+                next_steps=[],
+                summary=""
+            )
         
+        # Initial data fetch
+        if not initial_state.get("flows"):
+            try:
+                initial_state["flows"] = await self.client.get_flows()
+            except Exception:
+                pass
+
         app = self.create_graph()
         final_state = await app.ainvoke(initial_state)
         return final_state

@@ -4,9 +4,9 @@ from wiremind.client import WiremindClient
 
 @pytest.fixture
 async def client():
-    client = WiremindClient(base_url="http://mock-api")
-    yield client
-    await client.close()
+    wm_client = WiremindClient(base_url="http://mock-api")
+    yield wm_client
+    await wm_client.close()
 
 @pytest.mark.asyncio
 async def test_get_flows(client, respx_mock):

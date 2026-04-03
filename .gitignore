@@ -12,6 +12,32 @@ output/
 # Claude Code session files
 .claude/
 
+# Python
+python/__pycache__/
+python/**/__pycache__/
+python/.pytest_cache/
+python/*.pyc
+python/.venv/
+python/venv/
+python/.env
+python/data/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary and Log files
+*.log
+.output.txt
+code.txt
+brainstorm.txt
+$null
+
+# OS files
+.DS_Store
+Thumbs.db
+
 # Go
 *.test
 *.out
