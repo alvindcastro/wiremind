@@ -2,7 +2,6 @@ package store
 
 import (
 	"fmt"
-	"log/slog"
 	"time"
 
 	"wiremind/config"

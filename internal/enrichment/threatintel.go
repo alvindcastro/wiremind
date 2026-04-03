@@ -14,12 +14,14 @@ import (
 // ThreatIntelClient interfaces with external APIs (VirusTotal, AbuseIPDB).
 // It includes a simple in-memory cache to avoid redundant API calls.
 type ThreatIntelClient struct {
-	vtKey      string
-	abuseIPKey string
-	client     *http.Client
-	cache      map[string]cacheEntry
-	cacheMu    sync.RWMutex
-	cacheTTL   time.Duration
+	vtKey        string
+	abuseIPKey   string
+	client       *http.Client
+	cache        map[string]cacheEntry
+	cacheMu      sync.RWMutex
+	cacheTTL     time.Duration
+	vtBaseURL    string
+	abuseBaseURL string
 }
 
 type cacheEntry struct {
@@ -29,11 +31,13 @@ type cacheEntry struct {
 
 func NewThreatIntelClient(timeout time.Duration, cacheTTL time.Duration) *ThreatIntelClient {
 	return &ThreatIntelClient{
-		vtKey:      os.Getenv("VIRUSTOTAL_API_KEY"),
-		abuseIPKey: os.Getenv("ABUSEIPDB_API_KEY"),
-		client:     &http.Client{Timeout: timeout},
-		cache:      make(map[string]cacheEntry),
-		cacheTTL:   cacheTTL,
+		vtKey:        os.Getenv("VIRUSTOTAL_API_KEY"),
+		abuseIPKey:   os.Getenv("ABUSEIPDB_API_KEY"),
+		client:       &http.Client{Timeout: timeout},
+		cache:        make(map[string]cacheEntry),
+		cacheTTL:     cacheTTL,
+		vtBaseURL:    "https://www.virustotal.com/api/v3",
+		abuseBaseURL: "https://api.abuseipdb.com/api/v2",
 	}
 }
 
@@ -91,7 +95,7 @@ func (c *ThreatIntelClient) Lookup(indicator string) []models.ThreatIntelResult 
 }
 
 func (c *ThreatIntelClient) queryVirusTotal(indicator string) (*models.ThreatIntelResult, error) {
-	url := fmt.Sprintf("https://www.virustotal.com/api/v3/ip_addresses/%s", indicator)
+	url := fmt.Sprintf("%s/ip_addresses/%s", c.vtBaseURL, indicator)
 	// VT v3 uses the same endpoint for domains if we detect it's not an IP,
 	// but for simplicity this implementation assumes IP.
 
@@ -133,7 +137,7 @@ func (c *ThreatIntelClient) queryVirusTotal(indicator string) (*models.ThreatInt
 }
 
 func (c *ThreatIntelClient) queryAbuseIPDB(indicator string) (*models.ThreatIntelResult, error) {
-	url := fmt.Sprintf("https://api.abuseipdb.com/api/v2/check?ipAddress=%s", indicator)
+	url := fmt.Sprintf("%s/check?ipAddress=%s", c.abuseBaseURL, indicator)
 
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Key", c.abuseIPKey)

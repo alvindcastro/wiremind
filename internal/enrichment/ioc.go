@@ -136,6 +136,24 @@ func (m *IOCMatcher) addHash(raw string, entry models.IOCMatch) {
 	m.hashes[key] = append(m.hashes[key], entry)
 }
 
+// AddMatch is a helper for manual injection of indicators (useful for testing).
+func (m *IOCMatcher) AddMatch(indicator, source string, iocType models.IOCType, severity models.IOCSeverity) {
+	entry := models.IOCMatch{
+		Indicator: indicator,
+		Type:      iocType,
+		Source:    source,
+		Severity:  severity,
+	}
+	switch iocType {
+	case models.IOCTypeIP:
+		m.addIP(indicator, entry)
+	case models.IOCTypeDomain:
+		m.addDomain(indicator, entry)
+	case models.IOCTypeHash:
+		m.addHash(indicator, entry)
+	}
+}
+
 // MatchIP returns all IOCMatch entries for ip. Checks exact matches first,
 // then CIDR ranges. Returns nil if no match is found.
 func (m *IOCMatcher) MatchIP(ip net.IP) []models.IOCMatch {

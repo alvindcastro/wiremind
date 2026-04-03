@@ -9,7 +9,8 @@ Wiremind ingests network traffic from any source and runs a team of specialized 
 ## Status
 
 ✅ **Phase 1 complete** — Go input adapters + PCAP parser
-🚧 **Phase 2 in progress** — Enrichment pipeline & Go API Server
+✅ **Phase 2 complete** — Enrichment pipeline, PostgreSQL store, & Go API Server
+🚧 **Phase 3 pending** — LangGraph AI Agents (Python)
 
 ---
 
