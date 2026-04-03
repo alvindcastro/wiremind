@@ -106,3 +106,62 @@ func TestPostgresStore_SaveEnrichedResult(t *testing.T) {
 		t.Errorf("Core flow was not saved correctly")
 	}
 }
+
+func TestPostgresStore_ConfigAndIOC(t *testing.T) {
+	store := setupTestDB(t)
+	defer store.Close()
+
+	// Test Config
+	cfg := &models.Config{Key: "test_key", Value: "test_value"}
+	if err := store.SaveConfig(cfg); err != nil {
+		t.Fatalf("Failed to save config: %v", err)
+	}
+
+	retrieved, err := store.GetConfig("test_key")
+	if err != nil {
+		t.Fatalf("Failed to get config: %v", err)
+	}
+	if retrieved.Value != "test_value" {
+		t.Errorf("Config value mismatch: got %s, want %s", retrieved.Value, "test_value")
+	}
+
+	// Test IOC
+	entry := &models.IOCEntry{
+		Indicator: "malicious.com",
+		Type:      models.IOCTypeDomain,
+		Source:    "manual",
+		Severity:  models.IOCSeverityHigh,
+	}
+	if err := store.SaveIOCEntry(entry); err != nil {
+		t.Fatalf("Failed to save ioc: %v", err)
+	}
+
+	entries, err := store.GetIOCEntries(10)
+	if err != nil {
+		t.Fatalf("Failed to get ioc entries: %v", err)
+	}
+	if len(entries) != 1 || entries[0].Indicator != "malicious.com" {
+		t.Errorf("IOC entry mismatch: %+v", entries)
+	}
+
+	if err := store.DeleteIOCEntry("1"); err != nil {
+		t.Fatalf("Failed to delete ioc: %v", err)
+	}
+	entries, _ = store.GetIOCEntries(10)
+	if len(entries) != 0 {
+		t.Errorf("Expected 0 ioc entries after deletion, got %d", len(entries))
+	}
+
+	// Test Capture
+	job := &models.CaptureJob{Interface: "eth0", Status: "running"}
+	if err := store.SaveCaptureJob(job); err != nil {
+		t.Fatalf("Failed to save capture job: %v", err)
+	}
+	if err := store.UpdateCaptureJobStatus(1, "stopped"); err != nil {
+		t.Fatalf("Failed to update capture status: %v", err)
+	}
+	jobs, _ := store.GetCaptureJobs(10)
+	if len(jobs) != 1 || jobs[0].Status != "stopped" {
+		t.Errorf("Capture job mismatch: %+v", jobs)
+	}
+}

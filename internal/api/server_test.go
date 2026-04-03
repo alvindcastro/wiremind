@@ -8,11 +8,88 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/glebarez/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 	"wiremind/config"
 	"wiremind/internal/enrichment"
 	"wiremind/internal/models"
 	"wiremind/internal/queue"
+	"wiremind/internal/store"
 )
+
+func setupTestStore(t *testing.T) *store.PostgresStore {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	if err != nil {
+		t.Fatalf("Failed to connect to test db: %v", err)
+	}
+	return store.NewTestStore(db)
+}
+
+func TestServerConfigAndIOC(t *testing.T) {
+	st := setupTestStore(t)
+	pipeline, _ := enrichment.NewPipeline(&config.Config{})
+	server := NewServer(&config.Config{}, pipeline, st, nil)
+
+	t.Run("POST /api/v1/config/ioc", func(t *testing.T) {
+		body := `{"indicator": "evil.com", "type": "domain"}`
+		req := httptest.NewRequest("POST", "/api/v1/config/ioc", bytes.NewBufferString(body))
+		w := httptest.NewRecorder()
+
+		server.handleAddIOC(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", w.Code)
+		}
+
+		var entry models.IOCEntry
+		json.NewDecoder(w.Body).Decode(&entry)
+		if entry.Indicator != "evil.com" {
+			t.Errorf("Expected indicator evil.com, got %s", entry.Indicator)
+		}
+
+		// Verify matcher updated
+		if len(pipeline.IOC.MatchDomain("evil.com")) == 0 {
+			t.Errorf("Matcher was not updated with new IOC")
+		}
+	})
+
+	t.Run("GET /api/v1/config/ioc", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/v1/config/ioc", nil)
+		w := httptest.NewRecorder()
+		server.handleListIOC(w, req)
+
+		var entries []models.IOCEntry
+		json.NewDecoder(w.Body).Decode(&entries)
+		if len(entries) != 1 {
+			t.Errorf("Expected 1 entry, got %d", len(entries))
+		}
+	})
+
+	t.Run("PATCH /api/v1/config/pipeline", func(t *testing.T) {
+		body := `{"key": "test_threshold", "value": "0.5"}`
+		req := httptest.NewRequest("PATCH", "/api/v1/config/pipeline", bytes.NewBufferString(body))
+		w := httptest.NewRecorder()
+		server.handleUpdateConfig(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", w.Code)
+		}
+	})
+
+	t.Run("POST /api/v1/capture/start", func(t *testing.T) {
+		body := `{"interface": "eth0", "filter": "tcp"}`
+		req := httptest.NewRequest("POST", "/api/v1/capture/start", bytes.NewBufferString(body))
+		w := httptest.NewRecorder()
+		server.handleStartCapture(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", w.Code)
+		}
+	})
+}
 
 func TestServerFlows(t *testing.T) {
 	cfg := &config.Config{ToolServerPort: 8765}

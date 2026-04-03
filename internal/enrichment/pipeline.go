@@ -13,9 +13,9 @@ import (
 // enriched event slices.
 type Pipeline struct {
 	cfg         *config.Config
-	geoip       *GeoIPEnricher
-	ioc         *IOCMatcher
-	threatIntel *ThreatIntelClient
+	GeoIP       *GeoIPEnricher
+	IOC         *IOCMatcher
+	ThreatIntel *ThreatIntelClient
 }
 
 // NewPipeline initialises all enrichers based on the provided configuration.
@@ -26,20 +26,20 @@ func NewPipeline(cfg *config.Config) (*Pipeline, error) {
 	if cfg.GeoIP.CityDBPath != "" || cfg.GeoIP.ASNDBPath != "" {
 		gi, err := NewGeoIPEnricher(cfg.GeoIP.CityDBPath, cfg.GeoIP.ASNDBPath)
 		if err == nil {
-			p.geoip = gi
+			p.GeoIP = gi
 		}
 	}
 
 	// 2. IOC Matcher
-	p.ioc = NewIOCMatcher()
+	p.IOC = NewIOCMatcher()
 	for _, src := range cfg.IOC.Sources {
-		p.ioc.LoadFile(src.Path, src.Source, models.IOCType(src.Type), models.IOCSeverity(src.Severity))
+		p.IOC.LoadFile(src.Path, src.Source, models.IOCType(src.Type), models.IOCSeverity(src.Severity))
 	}
 
 	// 3. Threat Intel
 	timeout := time.Duration(cfg.ThreatIntel.HTTPTimeoutSec) * time.Second
 	cacheTTL := time.Duration(cfg.ThreatIntel.CacheTTLMinutes) * time.Minute
-	p.threatIntel = NewThreatIntelClient(timeout, cacheTTL)
+	p.ThreatIntel = NewThreatIntelClient(timeout, cacheTTL)
 
 	return p, nil
 }
@@ -136,21 +136,21 @@ func (p *Pipeline) enrichIndicator(val string) *models.ThreatContext {
 	ip := net.ParseIP(val)
 
 	// 1. GeoIP (only for IPs)
-	if ip != nil && p.geoip != nil {
-		tc.Geo = p.geoip.Lookup(ip)
+	if ip != nil && p.GeoIP != nil {
+		tc.Geo = p.GeoIP.Lookup(ip)
 	}
 
 	// 2. IOC Matches
 	if ip != nil {
-		tc.IOCMatches = p.ioc.MatchIP(ip)
+		tc.IOCMatches = p.IOC.MatchIP(ip)
 	} else {
-		tc.IOCMatches = p.ioc.MatchDomain(val)
+		tc.IOCMatches = p.IOC.MatchDomain(val)
 	}
 
 	// 3. External Threat Intel (for IPs or domains)
 	// We only query if the indicator isn't local-only (private IP)
 	if ip == nil || !isPrivateIP(ip) {
-		tc.ThreatIntel = p.threatIntel.Lookup(val)
+		tc.ThreatIntel = p.ThreatIntel.Lookup(val)
 	}
 
 	// 4. Final Verdict
@@ -170,7 +170,7 @@ func (p *Pipeline) enrichIndicator(val string) *models.ThreatContext {
 }
 
 func (p *Pipeline) Close() {
-	if p.geoip != nil {
-		p.geoip.Close()
+	if p.GeoIP != nil {
+		p.GeoIP.Close()
 	}
 }

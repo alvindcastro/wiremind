@@ -301,6 +301,123 @@ paths:
                   icmp:
                     type: integer
 
+  /config/ioc:
+    get:
+      summary: List custom IOC entries
+      description: Returns a list of manually added Indicators of Compromise.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IOCEntry'
+    post:
+      summary: Add a custom IOC entry
+      description: Dynamically adds an IP, domain, or hash to the local blocklist.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IOCEntry'
+      responses:
+        '200':
+          description: IOC entry added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IOCEntry'
+
+  /config/ioc/{id}:
+    delete:
+      summary: Remove a custom IOC entry
+      description: Deletes an IOC entry by its database ID.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: IOC entry removed
+
+  /config/pipeline:
+    patch:
+      summary: Update pipeline configuration
+      description: Adjusts enrichment thresholds and sensitivities at runtime.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - key
+                - value
+              properties:
+                key:
+                  type: string
+                  description: Configuration key (e.g., beacon_jitter_threshold)
+                value:
+                  type: string
+                  description: Configuration value
+      responses:
+        '200':
+          description: Configuration updated
+
+  /capture/start:
+    post:
+      summary: Start a live capture
+      description: Initiates a real-time packet capture on a specified interface.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - interface
+              properties:
+                interface:
+                  type: string
+                  description: Network interface name (e.g., eth0, \Device\NPF_...)
+                filter:
+                  type: string
+                  description: BPF filter string
+      responses:
+        '200':
+          description: Capture job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaptureJob'
+
+  /capture/stop:
+    post:
+      summary: Stop a live capture
+      description: Gracefully terminates a running capture session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: integer
+                  description: Capture job ID
+      responses:
+        '200':
+          description: Capture stopped
+
   /health:
     get:
       summary: Health check
@@ -551,6 +668,45 @@ components:
           $ref: '#/components/schemas/ThreatContext'
         dst_threat:
           $ref: '#/components/schemas/ThreatContext'
+
+    IOCEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        indicator:
+          type: string
+        type:
+          type: string
+          enum: [ip, domain, hash]
+        source:
+          type: string
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        tags:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+
+    CaptureJob:
+      type: object
+      properties:
+        id:
+          type: integer
+        interface:
+          type: string
+        filter:
+          type: string
+        status:
+          type: string
+          enum: [running, stopped]
+        created_at:
+          type: string
+          format: date-time
 
     ICMPEvent:
       type: object

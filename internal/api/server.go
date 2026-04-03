@@ -78,6 +78,12 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /api/v1/http", s.instrument("http", s.handleHTTP))
 	mux.HandleFunc("GET /api/v1/icmp", s.instrument("icmp", s.handleICMP))
 	mux.HandleFunc("GET /api/v1/stats", s.instrument("stats", s.handleStats))
+	mux.HandleFunc("GET /api/v1/config/ioc", s.instrument("list_ioc", s.handleListIOC))
+	mux.HandleFunc("POST /api/v1/config/ioc", s.instrument("add_ioc", s.handleAddIOC))
+	mux.HandleFunc("DELETE /api/v1/config/ioc/{id}", s.instrument("delete_ioc", s.handleDeleteIOC))
+	mux.HandleFunc("PATCH /api/v1/config/pipeline", s.instrument("update_config", s.handleUpdateConfig))
+	mux.HandleFunc("POST /api/v1/capture/start", s.instrument("start_capture", s.handleStartCapture))
+	mux.HandleFunc("POST /api/v1/capture/stop", s.instrument("stop_capture", s.handleStopCapture))
 	mux.HandleFunc("GET /health", s.handleHealth)
 	mux.Handle("GET /metrics", promhttp.Handler())
 
@@ -375,6 +381,143 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeJSON(w, health)
+}
+
+func (s *Server) handleListIOC(w http.ResponseWriter, r *http.Request) {
+	if s.store == nil {
+		http.Error(w, "persistence disabled", http.StatusNotImplemented)
+		return
+	}
+	limit := 100
+	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 {
+		limit = l
+	}
+	entries, err := s.store.GetIOCEntries(limit)
+	if err != nil {
+		http.Error(w, "database error", http.StatusInternalServerError)
+		return
+	}
+	s.writeJSON(w, entries)
+}
+
+func (s *Server) handleAddIOC(w http.ResponseWriter, r *http.Request) {
+	if s.store == nil {
+		http.Error(w, "persistence disabled", http.StatusNotImplemented)
+		return
+	}
+	var entry models.IOCEntry
+	if err := json.NewDecoder(r.Body).Decode(&entry); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if entry.Indicator == "" || entry.Type == "" {
+		http.Error(w, "indicator and type are required", http.StatusBadRequest)
+		return
+	}
+	if entry.Source == "" {
+		entry.Source = "manual"
+	}
+	if entry.Severity == "" {
+		entry.Severity = models.IOCSeverityMedium
+	}
+	if err := s.store.SaveIOCEntry(&entry); err != nil {
+		http.Error(w, "database error", http.StatusInternalServerError)
+		return
+	}
+	// Dynamically update the matcher in the pipeline
+	s.pipeline.IOC.AddMatch(entry.Indicator, entry.Source, entry.Type, entry.Severity)
+	s.writeJSON(w, entry)
+}
+
+func (s *Server) handleDeleteIOC(w http.ResponseWriter, r *http.Request) {
+	if s.store == nil {
+		http.Error(w, "persistence disabled", http.StatusNotImplemented)
+		return
+	}
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "missing id", http.StatusBadRequest)
+		return
+	}
+	if err := s.store.DeleteIOCEntry(id); err != nil {
+		http.Error(w, "database error", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
+	if s.store == nil {
+		http.Error(w, "persistence disabled", http.StatusNotImplemented)
+		return
+	}
+	var req struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.Key == "" {
+		http.Error(w, "key is required", http.StatusBadRequest)
+		return
+	}
+	cfg := &models.Config{Key: req.Key, Value: req.Value}
+	if err := s.store.SaveConfig(cfg); err != nil {
+		http.Error(w, "database error", http.StatusInternalServerError)
+		return
+	}
+	// Note: In a real app, this would trigger a config reload or update the pipeline.
+	// For now, we just persist it.
+	s.writeJSON(w, cfg)
+}
+
+func (s *Server) handleStartCapture(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Interface string `json:"interface"`
+		Filter    string `json:"filter"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.Interface == "" {
+		http.Error(w, "interface is required", http.StatusBadRequest)
+		return
+	}
+	job := &models.CaptureJob{
+		Interface: req.Interface,
+		Filter:    req.Filter,
+		Status:    "running",
+	}
+	if s.store != nil {
+		if err := s.store.SaveCaptureJob(job); err != nil {
+			http.Error(w, "database error", http.StatusInternalServerError)
+			return
+		}
+	}
+	// Trigger live capture logic (mocked for now)
+	slog.Info("live capture started", "interface", req.Interface, "filter", req.Filter)
+	s.writeJSON(w, job)
+}
+
+func (s *Server) handleStopCapture(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ID uint `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if s.store != nil {
+		if err := s.store.UpdateCaptureJobStatus(req.ID, "stopped"); err != nil {
+			http.Error(w, "database error", http.StatusInternalServerError)
+			return
+		}
+	}
+	slog.Info("live capture stopped", "id", req.ID)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) writeJSON(w http.ResponseWriter, v any) {

@@ -63,7 +63,56 @@ func (s *PostgresStore) AutoMigrate() error {
 		&models.EnrichedICMPEvent{},
 		&models.Entity{},
 		&models.EntityObservation{},
+		&models.Config{},
+		&models.IOCEntry{},
+		&models.CaptureJob{},
 	)
+}
+
+// SaveConfig persists or updates a configuration setting.
+func (s *PostgresStore) SaveConfig(cfg *models.Config) error {
+	return s.db.Save(cfg).Error
+}
+
+// GetConfig retrieves a configuration setting by key.
+func (s *PostgresStore) GetConfig(key string) (*models.Config, error) {
+	var cfg models.Config
+	err := s.db.First(&cfg, "key = ?", key).Error
+	return &cfg, err
+}
+
+// SaveIOCEntry persists a new IOC indicator.
+func (s *PostgresStore) SaveIOCEntry(entry *models.IOCEntry) error {
+	return s.db.Save(entry).Error
+}
+
+// DeleteIOCEntry removes an IOC entry by ID.
+func (s *PostgresStore) DeleteIOCEntry(id string) error {
+	return s.db.Delete(&models.IOCEntry{}, id).Error
+}
+
+// GetIOCEntries retrieves a list of custom indicators.
+func (s *PostgresStore) GetIOCEntries(limit int) ([]models.IOCEntry, error) {
+	var entries []models.IOCEntry
+	err := s.db.Limit(limit).Order("created_at desc").Find(&entries).Error
+	return entries, err
+}
+
+// SaveCaptureJob persists a live capture request.
+func (s *PostgresStore) SaveCaptureJob(job *models.CaptureJob) error {
+	return s.db.Save(job).Error
+}
+
+// GetCaptureJobs retrieves all capture jobs.
+func (s *PostgresStore) GetCaptureJobs(limit int) ([]models.CaptureJob, error) {
+	var jobs []models.CaptureJob
+	err := s.db.Limit(limit).Order("created_at desc").Find(&jobs).Error
+	return jobs, err
+}
+
+// UpdateCaptureJobStatus updates the status of a live capture.
+func (s *PostgresStore) UpdateCaptureJobStatus(id uint, status string) error {
+	return s.db.Model(&models.CaptureJob{}).Where("id = ?", id).Update("status", status).Error
 }
 
 // SaveJob persists a job record.
@@ -281,4 +330,11 @@ func (s *PostgresStore) Close() error {
 		return err
 	}
 	return sqlDB.Close()
+}
+
+// NewTestStore creates a store with an existing DB for testing.
+func NewTestStore(db *gorm.DB) *PostgresStore {
+	s := &PostgresStore{db: db}
+	s.AutoMigrate()
+	return s
 }
