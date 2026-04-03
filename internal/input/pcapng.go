@@ -3,18 +3,18 @@ package input
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/google/gopacket"
-	"github.com/google/gopacket/pcap"
+	"github.com/google/gopacket/pcapgo"
 )
 
 // PCAPNGSource reads packets from a .pcapng file.
-// gopacket's pcap.OpenOffline auto-detects pcap vs pcapng, so the
-// implementation mirrors PCAPFileSource with a distinct SourceType.
 type PCAPNGSource struct {
 	cfg     SourceConfig
-	handle  *pcap.Handle
+	handle  *pcapgo.NgReader
+	file    *os.File
 	packets chan gopacket.Packet
 	meta    SourceMeta
 }
@@ -27,11 +27,18 @@ func newPCAPNGSource(cfg SourceConfig) (PacketSource, error) {
 }
 
 func (s *PCAPNGSource) Open() error {
-	handle, err := pcap.OpenOffline(s.cfg.FilePath)
+	f, err := os.Open(s.cfg.FilePath)
 	if err != nil {
 		return fmt.Errorf("input: open pcapng %s: %w", s.cfg.FilePath, err)
 	}
 
+	handle, err := pcapgo.NewNgReader(f, pcapgo.DefaultNgReaderOptions)
+	if err != nil {
+		f.Close()
+		return fmt.Errorf("input: parse pcapng %s: %w", s.cfg.FilePath, err)
+	}
+
+	s.file = f
 	s.handle = handle
 	s.meta = SourceMeta{
 		Type:        SourcePCAPNG,
@@ -63,8 +70,8 @@ func (s *PCAPNGSource) Packets() <-chan gopacket.Packet { return s.packets }
 func (s *PCAPNGSource) Meta() SourceMeta                { return s.meta }
 
 func (s *PCAPNGSource) Close() error {
-	if s.handle != nil {
-		s.handle.Close()
+	if s.file != nil {
+		s.file.Close()
 		slog.Info("pcapng source closed", "file", s.cfg.FilePath)
 	}
 	return nil

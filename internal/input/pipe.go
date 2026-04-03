@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/gopacket"
-	"github.com/google/gopacket/pcap"
+	"github.com/google/gopacket/pcapgo"
 )
 
 // PipeSource reads a pcap stream from stdin or a named pipe.
@@ -17,7 +17,7 @@ import (
 // If FilePath is set, opens that path as a named pipe or regular file.
 type PipeSource struct {
 	cfg     SourceConfig
-	handle  *pcap.Handle
+	handle  *pcapgo.Reader
 	file    *os.File
 	packets chan gopacket.Packet
 	meta    SourceMeta
@@ -45,7 +45,7 @@ func (s *PipeSource) Open() error {
 		desc = fmt.Sprintf("pipe: %s", s.cfg.FilePath)
 	}
 
-	handle, err := pcap.OpenOfflineFile(f)
+	handle, err := pcapgo.NewReader(f)
 	if err != nil {
 		return fmt.Errorf("input: parse pcap from %s: %w", desc, err)
 	}
@@ -82,9 +82,6 @@ func (s *PipeSource) Packets() <-chan gopacket.Packet { return s.packets }
 func (s *PipeSource) Meta() SourceMeta                { return s.meta }
 
 func (s *PipeSource) Close() error {
-	if s.handle != nil {
-		s.handle.Close()
-	}
 	if s.file != nil && s.file != os.Stdin {
 		s.file.Close()
 	}

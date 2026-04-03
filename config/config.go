@@ -33,13 +33,30 @@ type IOCConfig struct {
 	Sources []IOCSourceConfig `yaml:"sources"`
 }
 
+type ThreatIntelConfig struct {
+	CacheTTLMinutes int `yaml:"cache_ttl_minutes"`
+	HTTPTimeoutSec  int `yaml:"http_timeout_sec"`
+}
+
+type PostgresConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+	DBName   string `yaml:"dbname"`
+	SSLMode  string `yaml:"ssl_mode"`
+}
+
 type Config struct {
-	OutputDir      string      `yaml:"output_dir"`
-	LogLevel       string      `yaml:"log_level"`
-	ToolServerPort int         `yaml:"tool_server_port"`
-	PCAP           PCAPConfig  `yaml:"pcap"`
-	GeoIP          GeoIPConfig `yaml:"geoip"`
-	IOC            IOCConfig   `yaml:"ioc"`
+	OutputDir      string            `yaml:"output_dir"`
+	LogLevel       string            `yaml:"log_level"`
+	ToolServerPort int               `yaml:"tool_server_port"`
+	PCAP           PCAPConfig        `yaml:"pcap"`
+	GeoIP          GeoIPConfig       `yaml:"geoip"`
+	IOC            IOCConfig         `yaml:"ioc"`
+	ThreatIntel    ThreatIntelConfig `yaml:"threat_intel"`
+	Postgres       PostgresConfig    `yaml:"postgres"`
 }
 
 func Load(path string) (*Config, error) {
@@ -75,5 +92,28 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("MAXMIND_ASN_DB_PATH"); v != "" {
 		cfg.GeoIP.ASNDBPath = v
+	}
+	if v := os.Getenv("DB_HOST"); v != "" {
+		cfg.Postgres.Host = v
+	}
+	if v := os.Getenv("DB_PORT"); v != "" {
+		if port, err := strconv.Atoi(v); err == nil {
+			cfg.Postgres.Port = port
+		}
+	}
+	if v := os.Getenv("DB_USER"); v != "" {
+		cfg.Postgres.User = v
+	}
+	if v := os.Getenv("DB_PASSWORD"); v != "" {
+		cfg.Postgres.Password = v
+	}
+	if v := os.Getenv("DB_NAME"); v != "" {
+		cfg.Postgres.DBName = v
+	}
+	if v := os.Getenv("DB_ENABLED"); v != "" {
+		cfg.Postgres.Enabled = (v == "true" || v == "1")
+	}
+	if v := os.Getenv("VIRUSTOTAL_API_KEY"); v != "" {
+		// keys are used directly from env in enrichment/threatintel.go
 	}
 }

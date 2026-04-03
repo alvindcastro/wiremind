@@ -3,17 +3,19 @@ package input
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/google/gopacket"
-	"github.com/google/gopacket/pcap"
+	"github.com/google/gopacket/pcapgo"
 )
 
 // PCAPFileSource reads packets from a .pcap file and emits them on a channel.
 // It implements PacketSource and is the primary source used during Phase 1.
 type PCAPFileSource struct {
 	cfg     SourceConfig
-	handle  *pcap.Handle
+	handle  *pcapgo.Reader
+	file    *os.File
 	packets chan gopacket.Packet
 	meta    SourceMeta
 }
@@ -28,11 +30,18 @@ func newPCAPFileSource(cfg SourceConfig) (PacketSource, error) {
 // Open opens the .pcap file and starts emitting packets in a background goroutine.
 // The packets channel is closed automatically when the file is exhausted.
 func (s *PCAPFileSource) Open() error {
-	handle, err := pcap.OpenOffline(s.cfg.FilePath)
+	f, err := os.Open(s.cfg.FilePath)
 	if err != nil {
 		return fmt.Errorf("input: open pcap %s: %w", s.cfg.FilePath, err)
 	}
 
+	handle, err := pcapgo.NewReader(f)
+	if err != nil {
+		f.Close()
+		return fmt.Errorf("input: parse pcap %s: %w", s.cfg.FilePath, err)
+	}
+
+	s.file = f
 	s.handle = handle
 	s.meta = SourceMeta{
 		Type:        SourceFile,
@@ -69,8 +78,8 @@ func (s *PCAPFileSource) Meta() SourceMeta {
 }
 
 func (s *PCAPFileSource) Close() error {
-	if s.handle != nil {
-		s.handle.Close()
+	if s.file != nil {
+		s.file.Close()
 		slog.Info("pcap file source closed", "file", s.cfg.FilePath)
 	}
 	return nil

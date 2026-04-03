@@ -3,6 +3,8 @@ package models
 import (
 	"net"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // FlowState represents the current TCP state of a flow.
@@ -19,9 +21,10 @@ const (
 // Flow represents a reconstructed TCP or UDP conversation identified
 // by its 5-tuple (src IP, dst IP, src port, dst port, protocol).
 type Flow struct {
-	FlowID      string    `json:"flow_id"`
-	SrcIP       net.IP    `json:"src_ip"`
-	DstIP       net.IP    `json:"dst_ip"`
+	gorm.Model  `json:"-"`
+	FlowID      string    `gorm:"index;unique" json:"flow_id"`
+	SrcIP       net.IP    `gorm:"type:inet" json:"src_ip"`
+	DstIP       net.IP    `gorm:"type:inet" json:"dst_ip"`
 	SrcPort     uint16    `json:"src_port"`
 	DstPort     uint16    `json:"dst_port"`
 	Protocol    string    `json:"protocol"`
@@ -34,7 +37,8 @@ type Flow struct {
 
 // FlowHealth captures anomaly indicators for a flow detected during parsing.
 type FlowHealth struct {
-	FlowID          string `json:"flow_id"`
+	gorm.Model      `json:"-"`
+	FlowID          string `gorm:"index" json:"flow_id"`
 	Retransmissions int    `json:"retransmissions"`
 	RSTCount        int    `json:"rst_count"`
 	ZeroWindowCount int    `json:"zero_window_count"`

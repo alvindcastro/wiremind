@@ -18,3 +18,14 @@ ioc:
       source: "abuse.ch"
       type: "domain"
       severity: "high"
+threat_intel:
+  cache_ttl_minutes: 1440 # 24 hours
+  http_timeout_sec: 10
+postgres:
+  enabled: false
+  host: "localhost"
+  port: 5432
+  user: "postgres"
+  password: "password"
+  dbname: "wiremind"
+  ssl_mode: "disable"

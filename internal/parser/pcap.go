@@ -24,14 +24,16 @@ type RawStats struct {
 // ParseResult is the output of a single parse run — one slice per event type
 // plus raw stats. This is what the JSON writer consumes.
 type ParseResult struct {
-	Meta       input.SourceMeta    `json:"meta"`
-	Stats      RawStats            `json:"stats"`
-	Flows      []models.Flow       `json:"flows"`
-	FlowHealth []models.FlowHealth `json:"flow_health"`
-	DNS        []models.DNSEvent   `json:"dns"`
-	TLS        []models.TLSEvent   `json:"tls"`
-	HTTP       []models.HTTPEvent  `json:"http"`
-	ICMP       []models.ICMPEvent  `json:"icmp"`
+	Meta       input.SourceMeta       `json:"meta"`
+	Stats      RawStats               `json:"stats"`
+	Flows      []models.Flow          `json:"flows"`
+	FlowHealth []models.FlowHealth    `json:"flow_health"`
+	DNS        []models.DNSEvent      `json:"dns"`
+	TLS        []models.TLSEvent      `json:"tls"`
+	HTTP       []models.HTTPEvent     `json:"http"`
+	ICMP       []models.ICMPEvent     `json:"icmp"`
+	Payloads   map[string][]byte      `json:"-"` // internal only: enrichment
+	Timestamps map[string][]time.Time `json:"-"` // internal only: enrichment
 }
 
 // Parse reads every packet from src, routes each one through the extractors,
@@ -42,6 +44,8 @@ func Parse(src input.PacketSource, cfg *config.Config) ParseResult {
 		Stats: RawStats{
 			ProtocolCounts: make(map[string]int),
 		},
+		Payloads:   make(map[string][]byte),
+		Timestamps: make(map[string][]time.Time),
 	}
 
 	ft := newFlowTracker()
@@ -62,8 +66,12 @@ func Parse(src input.PacketSource, cfg *config.Config) ParseResult {
 		trackProtocol(&result.Stats, pkt)
 
 		// --- extractors ----------------------------------------------------
-		ft.update(pkt)
+		flowID := ft.update(pkt)
 		ha.update(pkt) // feeds TCP segments into stream reassembler
+
+		// --- enrichment sampling -------------------------------------------
+		samplePayload(&result, flowID, pkt)
+		sampleTimestamp(&result, flowID, pkt)
 
 		if evt := extractDNS(pkt); evt != nil {
 			result.DNS = append(result.DNS, *evt)
@@ -92,6 +100,51 @@ func Parse(src input.PacketSource, cfg *config.Config) ParseResult {
 	)
 
 	return result
+}
+
+const (
+	maxPayloadSampleBytes = 4096
+	maxTimestampsPerFlow  = 100
+)
+
+func samplePayload(result *ParseResult, flowID string, pkt gopacket.Packet) {
+	if flowID == "" {
+		return
+	}
+	tl := pkt.TransportLayer()
+	if tl == nil {
+		return
+	}
+	payload := tl.LayerPayload()
+	if len(payload) == 0 {
+		return
+	}
+
+	curr := result.Payloads[flowID]
+	rem := maxPayloadSampleBytes - len(curr)
+	if rem <= 0 {
+		return
+	}
+	if len(payload) > rem {
+		payload = payload[:rem]
+	}
+	result.Payloads[flowID] = append(curr, payload...)
+}
+
+func sampleTimestamp(result *ParseResult, flowID string, pkt gopacket.Packet) {
+	if flowID == "" {
+		return
+	}
+	ts := pkt.Metadata().Timestamp
+	if ts.IsZero() {
+		return
+	}
+
+	curr := result.Timestamps[flowID]
+	if len(curr) >= maxTimestampsPerFlow {
+		return
+	}
+	result.Timestamps[flowID] = append(curr, ts)
 }
 
 // trackProtocol increments the protocol counter for a packet.

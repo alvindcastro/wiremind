@@ -28,10 +28,11 @@ func newFlowTracker() *flowTracker {
 }
 
 // update folds a single packet into the flow and health maps.
-func (ft *flowTracker) update(pkt gopacket.Packet) {
+// Returns the canonical flow ID for the packet.
+func (ft *flowTracker) update(pkt gopacket.Packet) string {
 	nl := pkt.NetworkLayer()
 	if nl == nil {
-		return // non-IP frames (ARP, etc.) — skip
+		return "" // non-IP frames (ARP, etc.) — skip
 	}
 
 	srcIP := net.IP(nl.NetworkFlow().Src().Raw())
@@ -85,6 +86,8 @@ func (ft *flowTracker) update(pkt gopacket.Packet) {
 		flow.State = nextTCPState(flow.State, tcpPkt)
 		ft.updateHealth(flowID, tcpPkt)
 	}
+
+	return flowID
 }
 
 // results returns the finalised slices ready for ParseResult.

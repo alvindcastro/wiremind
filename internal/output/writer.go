@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"time"
 
+	"wiremind/internal/enrichment"
 	"wiremind/internal/parser"
+	"wiremind/internal/store"
 )
 
 // WriteJSON writes every field of a ParseResult to its own JSON file under dir.
@@ -29,9 +31,9 @@ func WriteJSON(result parser.ParseResult, dir string) error {
 		return fmt.Errorf("output: create dir %s: %w", dir, err)
 	}
 
-	files := []struct {
+	data := []struct {
 		name string
-		data any
+		val  any
 	}{
 		{"meta.json", newMetaEnvelope(result)},
 		{"raw_stats.json", result.Stats},
@@ -43,13 +45,52 @@ func WriteJSON(result parser.ParseResult, dir string) error {
 		{"icmp.json", result.ICMP},
 	}
 
-	for _, f := range files {
-		if err := writeFile(filepath.Join(dir, f.name), f.data); err != nil {
+	for _, d := range data {
+		if err := writeFile(filepath.Join(dir, d.name), d.val); err != nil {
 			return err
 		}
 	}
 
-	slog.Info("output written", "dir", dir, "files", len(files))
+	slog.Info("output written", "dir", dir, "files", len(data))
+	return nil
+}
+
+// WriteEnrichedJSON writes the enrichment pipeline results to dir.
+func WriteEnrichedJSON(res enrichment.EnrichedResult, dir string) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("output: create dir %s: %w", dir, err)
+	}
+
+	data := []struct {
+		name string
+		val  any
+	}{
+		{"flows.json", res.Flows},
+		{"dns.json", res.DNS},
+		{"tls.json", res.TLS},
+		{"http.json", res.HTTP},
+		{"icmp.json", res.ICMP},
+	}
+
+	for _, d := range data {
+		if err := writeFile(filepath.Join(dir, d.name), d.val); err != nil {
+			return err
+		}
+	}
+
+	slog.Info("enriched output written", "dir", dir, "files", len(data))
+	return nil
+}
+
+// WriteToPostgres persists the enriched results to the database.
+func WriteToPostgres(res enrichment.EnrichedResult, s *store.PostgresStore) error {
+	if s == nil {
+		return nil
+	}
+	if err := s.SaveEnrichedResult(res); err != nil {
+		return fmt.Errorf("output: postgres: %w", err)
+	}
+	slog.Info("results persisted to postgres")
 	return nil
 }
 

@@ -4,13 +4,17 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
 	"wiremind/config"
+	"wiremind/internal/api"
+	"wiremind/internal/enrichment"
 	"wiremind/internal/input"
 	"wiremind/internal/output"
 	"wiremind/internal/parser"
+	"wiremind/internal/store"
 )
 
 func main() {
@@ -36,6 +40,7 @@ var (
 	flagInterface string
 	flagOutput    string
 	flagConfig    string
+	flagServe     bool
 )
 
 func init() {
@@ -44,6 +49,7 @@ func init() {
 	parseCmd.Flags().StringVar(&flagInterface, "interface", "", "Network interface name (for --input live)")
 	parseCmd.Flags().StringVar(&flagOutput, "output", "./output", "Directory to write JSON output files")
 	parseCmd.Flags().StringVar(&flagConfig, "config", "config/config.yaml", "Path to config file")
+	parseCmd.Flags().BoolVar(&flagServe, "serve", false, "Start the HTTP API server after parsing")
 
 	rootCmd.AddCommand(parseCmd)
 }
@@ -88,9 +94,41 @@ func runParse(cmd *cobra.Command, args []string) error {
 	// --- parse -------------------------------------------------------------
 	result := parser.Parse(src, cfg)
 
+	// --- enrichment --------------------------------------------------------
+	ep, err := enrichment.NewPipeline(cfg)
+	if err != nil {
+		return fmt.Errorf("init enrichment pipeline: %w", err)
+	}
+	defer ep.Close()
+
+	enriched := ep.Enrich(result)
+
+	// --- persistence -------------------------------------------------------
+	var db *store.PostgresStore
+	if cfg.Postgres.Enabled {
+		db, err = store.NewPostgresStore(cfg.Postgres)
+		if err != nil {
+			slog.Warn("failed to connect to postgres, skipping DB persistence", "err", err)
+		} else {
+			defer db.Close()
+		}
+	}
+
 	// --- write -------------------------------------------------------------
 	if err := output.WriteJSON(result, cfg.OutputDir); err != nil {
-		return fmt.Errorf("write output: %w", err)
+		return fmt.Errorf("write raw output: %w", err)
+	}
+
+	// Write enriched results to filesystem
+	if err := output.WriteEnrichedJSON(enriched, filepath.Join(cfg.OutputDir, "enriched")); err != nil {
+		slog.Warn("failed to write enriched results", "err", err)
+	}
+
+	// Persist to Postgres if enabled
+	if db != nil {
+		if err := output.WriteToPostgres(enriched, db); err != nil {
+			slog.Warn("failed to persist to postgres", "err", err)
+		}
 	}
 
 	slog.Info("done",
@@ -98,5 +136,12 @@ func runParse(cmd *cobra.Command, args []string) error {
 		"flows", len(result.Flows),
 		"output", cfg.OutputDir,
 	)
+
+	if flagServe {
+		srv := api.NewServer(cfg, ep, db)
+		srv.UpdateResults(enriched)
+		return srv.Start()
+	}
+
 	return nil
 }
