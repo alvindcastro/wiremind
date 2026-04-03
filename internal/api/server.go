@@ -68,6 +68,8 @@ func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /api/v1/flows", s.instrument("flows", s.handleFlows))
+	mux.HandleFunc("GET /api/v1/flows/search", s.instrument("flow_search", s.handleFlows))
+	mux.HandleFunc("GET /api/v1/threats", s.instrument("threats", s.handleThreats))
 	mux.HandleFunc("GET /api/v1/jobs", s.instrument("list_jobs", s.handleListJobs))
 	mux.HandleFunc("POST /api/v1/jobs", s.instrument("submit_job", s.handleSubmitJob))
 	mux.HandleFunc("GET /api/v1/jobs/{id}", s.instrument("get_job", s.handleGetJob))
@@ -116,7 +118,12 @@ func (s *Server) handleFlows(w http.ResponseWriter, r *http.Request) {
 		if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 {
 			limit = l
 		}
-		flows, err := s.store.GetFlows(limit)
+		jobID := r.URL.Query().Get("job_id")
+		srcIP := r.URL.Query().Get("src_ip")
+		dstIP := r.URL.Query().Get("dst_ip")
+		protocol := r.URL.Query().Get("protocol")
+
+		flows, err := s.store.GetFlows(limit, jobID, srcIP, dstIP, protocol)
 		if err != nil {
 			http.Error(w, "database error", http.StatusInternalServerError)
 			return
@@ -130,25 +137,111 @@ func (s *Server) handleFlows(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, s.results.Flows)
 }
 
+func (s *Server) handleThreats(w http.ResponseWriter, r *http.Request) {
+	if s.store == nil {
+		http.Error(w, "persistence disabled", http.StatusNotImplemented)
+		return
+	}
+
+	limit := 100
+	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 {
+		limit = l
+	}
+
+	threats, err := s.store.GetThreats(limit)
+	if err != nil {
+		http.Error(w, "database error", http.StatusInternalServerError)
+		return
+	}
+	s.writeJSON(w, threats)
+}
+
 func (s *Server) handleDNS(w http.ResponseWriter, r *http.Request) {
+	if s.store != nil {
+		limit := 100
+		if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 {
+			limit = l
+		}
+		jobID := r.URL.Query().Get("job_id")
+		query := r.URL.Query().Get("query")
+
+		events, err := s.store.GetDNSEvents(limit, jobID, query)
+		if err != nil {
+			http.Error(w, "database error", http.StatusInternalServerError)
+			return
+		}
+		s.writeJSON(w, events)
+		return
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	s.writeJSON(w, s.results.DNS)
 }
 
 func (s *Server) handleTLS(w http.ResponseWriter, r *http.Request) {
+	if s.store != nil {
+		limit := 100
+		if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 {
+			limit = l
+		}
+		jobID := r.URL.Query().Get("job_id")
+		sni := r.URL.Query().Get("sni")
+
+		events, err := s.store.GetTLSEvents(limit, jobID, sni)
+		if err != nil {
+			http.Error(w, "database error", http.StatusInternalServerError)
+			return
+		}
+		s.writeJSON(w, events)
+		return
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	s.writeJSON(w, s.results.TLS)
 }
 
 func (s *Server) handleHTTP(w http.ResponseWriter, r *http.Request) {
+	if s.store != nil {
+		limit := 100
+		if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 {
+			limit = l
+		}
+		jobID := r.URL.Query().Get("job_id")
+		host := r.URL.Query().Get("host")
+
+		events, err := s.store.GetHTTPEvents(limit, jobID, host)
+		if err != nil {
+			http.Error(w, "database error", http.StatusInternalServerError)
+			return
+		}
+		s.writeJSON(w, events)
+		return
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	s.writeJSON(w, s.results.HTTP)
 }
 
 func (s *Server) handleICMP(w http.ResponseWriter, r *http.Request) {
+	if s.store != nil {
+		limit := 100
+		if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 {
+			limit = l
+		}
+		jobID := r.URL.Query().Get("job_id")
+
+		events, err := s.store.GetICMPEvents(limit, jobID)
+		if err != nil {
+			http.Error(w, "database error", http.StatusInternalServerError)
+			return
+		}
+		s.writeJSON(w, events)
+		return
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	s.writeJSON(w, s.results.ICMP)

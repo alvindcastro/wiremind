@@ -1,0 +1,586 @@
+openapi: 3.0.3
+info:
+  title: Wiremind API
+  description: API for retrieving enriched network forensics results and managing processing jobs.
+  version: 1.0.0
+servers:
+  - url: /api/v1
+    description: v1 API root
+
+paths:
+  /flows:
+    get:
+      summary: List enriched flows
+      description: Returns a list of network flows with threat intelligence and analysis.
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of flows to return
+          required: false
+          schema:
+            type: integer
+            default: 100
+        - name: job_id
+          in: query
+          description: Filter flows by job ID
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: src_ip
+          in: query
+          description: Filter by source IP address
+          required: false
+          schema:
+            type: string
+        - name: dst_ip
+          in: query
+          description: Filter by destination IP address
+          required: false
+          schema:
+            type: string
+        - name: protocol
+          in: query
+          description: Filter by protocol (TCP/UDP)
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EnrichedFlow'
+        '500':
+          description: Internal server error
+
+  /flows/search:
+    get:
+      summary: Search flows with advanced filters
+      description: Alias for GET /flows with query parameters.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/JobID'
+        - name: src_ip
+          in: query
+          schema:
+            type: string
+        - name: dst_ip
+          in: query
+          schema:
+            type: string
+        - name: protocol
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EnrichedFlow'
+
+  /threats:
+    get:
+      summary: List malicious findings
+      description: Returns an aggregate view of all malicious flows and high-threat score findings.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EnrichedFlow'
+
+  /jobs:
+    get:
+      summary: List forensics jobs
+      description: Returns a list of asynchronous processing jobs.
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of jobs to return
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Job'
+        '501':
+          description: Persistence disabled
+        '500':
+          description: Internal server error
+    post:
+      summary: Submit a forensics job
+      description: Enqueues a new PCAP file for processing and enrichment.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - input_path
+              properties:
+                input_path:
+                  type: string
+                  description: Path to the input PCAP/PCAPNG file
+                output_path:
+                  type: string
+                  description: Directory to write JSON results
+      responses:
+        '200':
+          description: Job submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [pending]
+        '400':
+          description: Invalid request body
+        '501':
+          description: Async queue disabled
+        '500':
+          description: Internal server error
+
+  /jobs/{id}:
+    get:
+      summary: Get job details
+      description: Returns the status and metadata for a specific job.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Job UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Missing job ID
+        '404':
+          description: Job not found
+        '501':
+          description: Persistence disabled
+
+  /dns:
+    get:
+      summary: List enriched DNS events
+      description: Returns a list of DNS queries and responses with threat intel.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/JobID'
+        - name: query
+          in: query
+          description: Search for domain names
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EnrichedDNSEvent'
+
+  /tls:
+    get:
+      summary: List enriched TLS events
+      description: Returns a list of TLS handshakes (SNI/CipherSuite) with threat intel.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/JobID'
+        - name: sni
+          in: query
+          description: Search for Server Name Indication
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EnrichedTLSEvent'
+
+  /http:
+    get:
+      summary: List enriched HTTP events
+      description: Returns a list of HTTP requests with threat intel.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/JobID'
+        - name: host
+          in: query
+          description: Search for HTTP hosts
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EnrichedHTTPEvent'
+
+  /icmp:
+    get:
+      summary: List enriched ICMP events
+      description: Returns a list of ICMP messages with threat intel.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/JobID'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EnrichedICMPEvent'
+
+  /stats:
+    get:
+      summary: Get forensics statistics
+      description: Returns counts of flows and protocol events currently in memory.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flows:
+                    type: integer
+                  dns:
+                    type: integer
+                  tls:
+                    type: integer
+                  http:
+                    type: integer
+                  icmp:
+                    type: integer
+
+  /health:
+    get:
+      summary: Health check
+      description: Returns the operational status of the API and connected services.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [up, degraded]
+                  postgres:
+                    type: string
+                    enum: [up, down, not_initialized]
+
+components:
+  schemas:
+    Job:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        input_path:
+          type: string
+        output_path:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        error:
+          type: string
+        packet_count:
+          type: integer
+        flow_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    EnrichedFlow:
+      type: object
+      properties:
+        flow_id:
+          type: string
+        flow:
+          $ref: '#/components/schemas/Flow'
+        src_threat:
+          $ref: '#/components/schemas/ThreatContext'
+        dst_threat:
+          $ref: '#/components/schemas/ThreatContext'
+        entropy_score:
+          type: number
+        is_beacon:
+          type: boolean
+        beacon_interval_s:
+          type: number
+        beacon_jitter:
+          type: number
+
+    Flow:
+      type: object
+      properties:
+        flow_id:
+          type: string
+        src_ip:
+          type: string
+        src_port:
+          type: integer
+        dst_ip:
+          type: string
+        dst_port:
+          type: integer
+        protocol:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        packet_count:
+          type: integer
+        byte_count:
+          type: integer
+
+    ThreatContext:
+      type: object
+      properties:
+        indicator:
+          type: string
+        geo:
+          $ref: '#/components/schemas/GeoInfo'
+        ioc_matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/IOCMatch'
+        threat_intel:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThreatIntelResult'
+        is_malicious:
+          type: boolean
+        threat_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+
+    GeoInfo:
+      type: object
+      properties:
+        ip:
+          type: string
+        country_code:
+          type: string
+        country_name:
+          type: string
+        city:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        asn:
+          type: integer
+        asn_org:
+          type: string
+
+    IOCMatch:
+      type: object
+      properties:
+        indicator:
+          type: string
+        type:
+          type: string
+          enum: [ip, domain, hash]
+        source:
+          type: string
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        tags:
+          type: array
+          items:
+            type: string
+
+    ThreatIntelResult:
+      type: object
+      properties:
+        indicator:
+          type: string
+        source:
+          type: string
+        malicious:
+          type: boolean
+        score:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+        last_reported_at:
+          type: string
+          format: date-time
+
+    EnrichedDNSEvent:
+      type: object
+      properties:
+        event:
+          $ref: '#/components/schemas/DNSEvent'
+        domain_threats:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThreatContext'
+
+    DNSEvent:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        query:
+          type: string
+        qtype:
+          type: string
+        responses:
+          type: array
+          items:
+            type: string
+
+    EnrichedTLSEvent:
+      type: object
+      properties:
+        event:
+          $ref: '#/components/schemas/TLSEvent'
+        sni_threat:
+          $ref: '#/components/schemas/ThreatContext'
+
+    TLSEvent:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        sni:
+          type: string
+        version:
+          type: string
+        cipher:
+          type: string
+
+    EnrichedHTTPEvent:
+      type: object
+      properties:
+        event:
+          $ref: '#/components/schemas/HTTPEvent'
+        host_threat:
+          $ref: '#/components/schemas/ThreatContext'
+
+    HTTPEvent:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        method:
+          type: string
+        host:
+          type: string
+        path:
+          type: string
+        user_agent:
+          type: string
+
+    EnrichedICMPEvent:
+      type: object
+      properties:
+        event:
+          $ref: '#/components/schemas/ICMPEvent'
+        src_threat:
+          $ref: '#/components/schemas/ThreatContext'
+        dst_threat:
+          $ref: '#/components/schemas/ThreatContext'
+
+    ICMPEvent:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        type:
+          type: integer
+        code:
+          type: integer
+        src_ip:
+          type: string
+        dst_ip:
+          type: string
+
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      description: Maximum number of results to return
+      required: false
+      schema:
+        type: integer
+        default: 50
+    JobID:
+      name: job_id
+      in: query
+      description: Filter by job UUID
+      required: false
+      schema:
+        type: string
+        format: uuid
