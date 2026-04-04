@@ -10,11 +10,11 @@ import (
 	"wiremind/internal/models"
 )
 
-// pcapFixturePath returns the absolute path to a file in scripts/sample_pcaps/.
+// pcapFixturePath returns the absolute path to a file in testdata/.
 func pcapFixturePath(name string) string {
 	_, file, _, _ := runtime.Caller(0)
 	root := filepath.Join(filepath.Dir(file), "..", "..")
-	return filepath.Join(root, "scripts", "sample_pcaps", name)
+	return filepath.Join(root, "testdata", name)
 }
 
 // parseFixture opens a PCAP fixture file and runs Parse() against it.

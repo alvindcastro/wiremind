@@ -9,7 +9,7 @@ import (
 func fixturePath(name string) string {
 	_, file, _, _ := runtime.Caller(0)
 	root := filepath.Join(filepath.Dir(file), "..", "..")
-	return filepath.Join(root, "scripts", "sample_pcaps", name)
+	return filepath.Join(root, "testdata", name)
 }
 
 func TestPCAPNGSource_RequiresFilePath(t *testing.T) {

@@ -1,0 +1,45 @@
+# Git files
+.git
+.gitignore
+
+# Go files
+bin/
+pkg/
+vendor/
+*.log
+*.exe
+
+# Python files
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.Python
+env/
+venv/
+.venv/
+build/
+dist/
+*.egg-info/
+
+# Docker/Compose files
+.dockerignore
+docker-compose.override.yml
+
+# IDE files
+.idea/
+.vscode/
+
+# Project specific
+docs/
+python/
+scripts/
+PHASE*.md
+API_PLAN.md
+ARCHITECTURE.md
+COMMIT_HISTORY.md
+IDE_GUIDE.md
+NICE_TO_HAVE.md
+PLANNING.md
+brainstorm.txt
+code.txt

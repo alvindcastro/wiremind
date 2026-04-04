@@ -1,0 +1,20 @@
+# oapi-codegen configuration
+# https://github.com/oapi-codegen/oapi-codegen
+#
+# Generate Go types and a net/http server interface from the OpenAPI spec.
+#
+# Usage:
+#   go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+#   oapi-codegen -config oapi-codegen.yaml docs/openapi.yaml
+
+package: api
+generate:
+  - types        # Go structs for all schema components
+  - server       # net/http server interface (StrictServer)
+  - spec         # embed the OpenAPI spec into the binary
+
+output: internal/api/generated.go
+
+# Use the standard library net/http compatibility layer
+compatibility:
+  always-prefix-enum-values: true

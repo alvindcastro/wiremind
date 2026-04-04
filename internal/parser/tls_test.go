@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// TODO: add tls-handshake.pcap to scripts/sample_pcaps/ to enable these tests.
+// TODO: add tls-handshake.pcap to testdata/ to enable these tests.
 
 func TestExtractTLS_ClientHello_SNI(t *testing.T) {
 	t.Skip("requires tls-handshake.pcap fixture — pending")

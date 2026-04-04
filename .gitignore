@@ -5,6 +5,24 @@ forensics.exe
 # Output — generated every run, not source-controlled
 output/
 
+# Secrets
+.env
+
+# Large binary databases (download via script/CI)
+data/*.mmdb
+
+# PCAP files (large capture files, not source code)
+data/*.pcap
+
+# IOC threat feeds (auto-refreshed, not static snapshots)
+data/ioc/
+
+# Logs
+logs/
+
+# Junie agent session memory
+.junie/
+
 # IDE
 .idea/
 *.iml

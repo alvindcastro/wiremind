@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -63,6 +64,10 @@ type SentryConfig struct {
 	Enabled     bool   `yaml:"enabled"`
 }
 
+type CORSConfig struct {
+	AllowedOrigins []string `yaml:"allowed_origins"` // e.g. ["*"] or ["http://localhost:3000"]
+}
+
 type Config struct {
 	OutputDir      string            `yaml:"output_dir"`
 	LogLevel       string            `yaml:"log_level"`
@@ -74,6 +79,7 @@ type Config struct {
 	Postgres       PostgresConfig    `yaml:"postgres"`
 	Redis          RedisConfig       `yaml:"redis"`
 	Sentry         SentryConfig      `yaml:"sentry"`
+	CORS           CORSConfig        `yaml:"cors"`
 }
 
 func Load(path string) (*Config, error) {
@@ -163,5 +169,13 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("VIRUSTOTAL_API_KEY"); v != "" {
 		// keys are used directly from env in enrichment/threatintel.go
+	}
+	if v := os.Getenv("CORS_ALLOWED_ORIGINS"); v != "" {
+		// comma-separated: "http://localhost:3000,https://app.example.com" or "*"
+		for _, origin := range strings.Split(v, ",") {
+			if o := strings.TrimSpace(origin); o != "" {
+				cfg.CORS.AllowedOrigins = append(cfg.CORS.AllowedOrigins, o)
+			}
+		}
 	}
 }

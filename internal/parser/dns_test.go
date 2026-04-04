@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// TODO: add dns-capture.pcap to scripts/sample_pcaps/ to enable these tests.
+// TODO: add dns-capture.pcap to testdata/ to enable these tests.
 
 func TestExtractDNS_Query(t *testing.T) {
 	t.Skip("requires dns-capture.pcap fixture — pending")

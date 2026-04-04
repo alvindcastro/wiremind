@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"wiremind/config"
+	"wiremind/docs"
 	"wiremind/internal/enrichment"
 	"wiremind/internal/models"
 	"wiremind/internal/queue"
@@ -88,11 +89,52 @@ func (s *Server) Start() error {
 	mux.HandleFunc("POST /api/v1/capture/stop", s.instrument("stop_capture", s.handleStopCapture))
 	mux.HandleFunc("GET /health", s.handleHealth)
 	mux.Handle("GET /metrics", promhttp.Handler())
+	mux.HandleFunc("GET /openapi.yaml", handleOpenAPISpec)
+	mux.HandleFunc("GET /docs", handleSwaggerUI)
 
 	addr := ":" + strconv.Itoa(s.cfg.ToolServerPort)
 	slog.Info("api server starting", "addr", addr)
 
-	return http.ListenAndServe(addr, mux)
+	return http.ListenAndServe(addr, corsMiddleware(s.cfg.CORS.AllowedOrigins)(mux))
+}
+
+// corsMiddleware handles Cross-Origin Resource Sharing headers and OPTIONS preflight.
+// allowedOrigins may contain "*" (wildcard) or explicit origins like "http://localhost:3000".
+// If the slice is empty, it defaults to allowing all origins.
+func corsMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			origin := r.Header.Get("Origin")
+
+			switch {
+			case len(allowedOrigins) == 0 || allowedOrigins[0] == "*":
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+			case origin != "" && originAllowed(origin, allowedOrigins):
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Add("Vary", "Origin")
+			}
+
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+			w.Header().Set("Access-Control-Max-Age", "86400")
+
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func originAllowed(origin string, allowed []string) bool {
+	for _, o := range allowed {
+		if o == "*" || o == origin {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) instrument(endpoint string, handler http.HandlerFunc) http.HandlerFunc {
@@ -576,3 +618,36 @@ func (s *Server) writeJSON(w http.ResponseWriter, v any) {
 		slog.Error("api: encode error", "err", err)
 	}
 }
+
+func handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/yaml")
+	w.Write(docs.OpenAPISpec)
+}
+
+func handleSwaggerUI(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprint(w, swaggerUIHTML)
+}
+
+const swaggerUIHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Wiremind API Docs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script>
+    SwaggerUIBundle({
+      url: "/openapi.yaml",
+      dom_id: "#swagger-ui",
+      presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
+      layout: "BaseLayout",
+      deepLinking: true,
+    });
+  </script>
+</body>
+</html>`

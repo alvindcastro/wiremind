@@ -40,3 +40,6 @@ sentry:
   dsn: ""
   environment: "production"
   release: "1.0.0"
+cors:
+  allowed_origins:
+    - "*"
