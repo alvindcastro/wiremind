@@ -1,7 +1,6 @@
 package models
 
 import (
-	"net"
 	"time"
 
 	"gorm.io/gorm"
@@ -23,8 +22,8 @@ const (
 type Flow struct {
 	gorm.Model  `json:"-"`
 	FlowID      string    `gorm:"index;unique" json:"flow_id"`
-	SrcIP       net.IP    `gorm:"type:inet" json:"src_ip"`
-	DstIP       net.IP    `gorm:"type:inet" json:"dst_ip"`
+	SrcIP       IPAddr    `gorm:"type:text" json:"src_ip"`
+	DstIP       IPAddr    `gorm:"type:text" json:"dst_ip"`
 	SrcPort     uint16    `json:"src_port"`
 	DstPort     uint16    `json:"dst_port"`
 	Protocol    string    `json:"protocol"`

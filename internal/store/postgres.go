@@ -145,26 +145,20 @@ func (s *PostgresStore) GetJobs(limit int) ([]models.Job, error) {
 // SaveEnrichedResult persists a batch of enriched forensics data.
 func (s *PostgresStore) SaveEnrichedResult(res enrichment.EnrichedResult) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// 1. Save Flows (core and enriched) — upsert on flow_id to handle duplicate 5-tuples
+		// 1. Save Flows — skip duplicates (same 5-tuple can appear multiple times in a PCAP)
+		noConflictFlow := clause.OnConflict{DoNothing: true}
 		for _, ef := range res.Flows {
-			if err := tx.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "flow_id"}},
-				DoUpdates: clause.AssignmentColumns([]string{"packet_count", "byte_count", "last_seen", "state", "updated_at"}),
-			}).Create(&ef.Flow).Error; err != nil {
+			if err := tx.Clauses(noConflictFlow).Create(&ef.Flow).Error; err != nil {
 				return err
 			}
 			if err := tx.Session(&gorm.Session{FullSaveAssociations: false}).
-				Clauses(clause.OnConflict{
-					Columns:   []clause.Column{{Name: "flow_id"}},
-					DoUpdates: clause.AssignmentColumns([]string{"src_threat", "dst_threat", "entropy_score", "is_beacon", "beacon_interval_s", "beacon_jitter", "updated_at"}),
-				}).Create(&ef).Error; err != nil {
+				Omit(clause.Associations).
+				Clauses(noConflictFlow).
+				Create(&ef).Error; err != nil {
 				return err
 			}
 			if ef.FlowHealth != nil {
-				if err := tx.Clauses(clause.OnConflict{
-					Columns:   []clause.Column{{Name: "flow_id"}},
-					DoUpdates: clause.AssignmentColumns([]string{"retransmissions", "rst_count", "zero_window_count", "dup_ack_count", "blocked", "updated_at"}),
-				}).Create(ef.FlowHealth).Error; err != nil {
+				if err := tx.Clauses(noConflictFlow).Create(ef.FlowHealth).Error; err != nil {
 					return err
 				}
 			}

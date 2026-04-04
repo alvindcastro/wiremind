@@ -73,6 +73,7 @@ func (p *Pipeline) Enrich(res parser.ParseResult) EnrichedResult {
 
 	for _, f := range res.Flows {
 		ef := models.EnrichedFlow{
+			FlowID:       f.FlowID,
 			Flow:         f,
 			SrcThreat:    p.enrichIndicator(f.SrcIP.String()),
 			DstThreat:    p.enrichIndicator(f.DstIP.String()),

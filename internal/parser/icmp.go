@@ -2,7 +2,6 @@ package parser
 
 import (
 	"fmt"
-	"net"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -54,10 +53,10 @@ func icmpv6Event(pkt gopacket.Packet, icmp *layers.ICMPv6) *models.ICMPEvent {
 }
 
 // ipsFromPacket extracts src/dst IPs from the network layer.
-func ipsFromPacket(pkt gopacket.Packet) (src, dst net.IP) {
+func ipsFromPacket(pkt gopacket.Packet) (src, dst models.IPAddr) {
 	if nl := pkt.NetworkLayer(); nl != nil {
-		src = net.IP(nl.NetworkFlow().Src().Raw())
-		dst = net.IP(nl.NetworkFlow().Dst().Raw())
+		src = models.IPAddr(nl.NetworkFlow().Src().Raw())
+		dst = models.IPAddr(nl.NetworkFlow().Dst().Raw())
 	}
 	return
 }

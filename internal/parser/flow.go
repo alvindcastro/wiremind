@@ -65,8 +65,8 @@ func (ft *flowTracker) update(pkt gopacket.Packet) string {
 	if !exists {
 		flow = &models.Flow{
 			FlowID:    flowID,
-			SrcIP:     cSrcIP,
-			DstIP:     cDstIP,
+			SrcIP:     models.IPAddr(cSrcIP),
+			DstIP:     models.IPAddr(cDstIP),
 			SrcPort:   cSrcPort,
 			DstPort:   cDstPort,
 			Protocol:  proto,

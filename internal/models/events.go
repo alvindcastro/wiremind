@@ -1,7 +1,6 @@
 package models
 
 import (
-	"net"
 	"time"
 
 	"gorm.io/gorm"
@@ -67,8 +66,8 @@ type ICMPEvent struct {
 	gorm.Model `json:"-"`
 	FlowID     string    `gorm:"index" json:"flow_id"`
 	Timestamp  time.Time `json:"timestamp"`
-	SrcIP      net.IP    `gorm:"type:inet" json:"src_ip"`
-	DstIP      net.IP    `gorm:"type:inet" json:"dst_ip"`
+	SrcIP      IPAddr    `gorm:"type:text" json:"src_ip"`
+	DstIP      IPAddr    `gorm:"type:text" json:"dst_ip"`
 	TypeCode   uint8     `json:"type_code"`
 	Code       uint8     `json:"code"`
 	TypeName   string    `json:"type_name"` // human-readable: "EchoRequest", "DestUnreachable", etc.

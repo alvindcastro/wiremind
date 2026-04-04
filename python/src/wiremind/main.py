@@ -9,28 +9,19 @@ from wiremind.logger import configure_logger, get_logger
 
 logger = get_logger("wiremind.main")
 
-async def run_analysis(base_url: str, flow_id: str = None):
+async def run_analysis(base_url: str):
     """
     Run a full forensics analysis using the AI orchestrator.
     """
     configure_logger()
     client = WiremindClient(base_url)
     orchestrator = Orchestrator(client)
-    
-    # Initialize state
-    initial_state = ForensicsState(
-        flow_id=flow_id,
-        messages=[],
-        findings=[],
-        context={},
-        next_agent="orchestrator"
-    )
-    
-    logger.info("starting_ai_analysis", flow_id=flow_id, api_url=base_url)
+
+    logger.info("starting_ai_analysis", api_url=base_url)
     
     try:
         # Run the orchestrator
-        final_state = await orchestrator.run(initial_state)
+        final_state = await orchestrator.run()
         
         logger.info("analysis_complete", findings_count=len(final_state['findings']))
         
@@ -46,12 +37,11 @@ async def run_analysis(base_url: str, flow_id: str = None):
 
 def main():
     parser = argparse.ArgumentParser(description="Wiremind AI Forensics CLI")
-    parser.add_argument("--url", default="http://localhost:8765", help="Wiremind API base URL")
-    parser.add_argument("--flow", help="Specific Flow ID to analyze")
-    
+    parser.add_argument("--url", default=os.environ.get("WIREMIND_API_URL", "http://localhost:8765"), help="Wiremind API base URL")
+
     args = parser.parse_args()
-    
-    asyncio.run(run_analysis(args.url, args.flow))
+
+    asyncio.run(run_analysis(args.url))
 
 if __name__ == "__main__":
     main()
