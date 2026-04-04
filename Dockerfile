@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Install libpcap-dev for live capture support (optional, but good to have)
 RUN apk add --no-cache libpcap-dev gcc musl-dev
@@ -24,9 +24,10 @@ RUN apk add --no-cache libpcap
 
 WORKDIR /root/
 
-# Copy the binary from the builder stage
+# Copy the binary and necessary runtime files from the builder stage
 COPY --from=builder /app/wiremind .
 COPY --from=builder /app/config/config.yaml ./config/
+RUN mkdir -p ./data/ioc ./output ./logs
 
 # Expose the API port
 EXPOSE 8765

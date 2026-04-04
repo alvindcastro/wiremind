@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -73,6 +74,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /api/v1/jobs", s.instrument("list_jobs", s.handleListJobs))
 	mux.HandleFunc("POST /api/v1/jobs", s.instrument("submit_job", s.handleSubmitJob))
 	mux.HandleFunc("GET /api/v1/jobs/{id}", s.instrument("get_job", s.handleGetJob))
+	mux.HandleFunc("GET /api/v1/jobs/{id}/stream", s.handleJobStream)
 	mux.HandleFunc("GET /api/v1/dns", s.instrument("dns", s.handleDNS))
 	mux.HandleFunc("GET /api/v1/tls", s.instrument("tls", s.handleTLS))
 	mux.HandleFunc("GET /api/v1/http", s.instrument("http", s.handleHTTP))
@@ -304,6 +306,54 @@ func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeJSON(w, job)
+}
+
+func (s *Server) handleJobStream(w http.ResponseWriter, r *http.Request) {
+	if s.store == nil {
+		http.Error(w, "persistence disabled", http.StatusNotImplemented)
+		return
+	}
+
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "missing job id", http.StatusBadRequest)
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	ctx := r.Context()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			job, err := s.store.GetJob(id)
+			if err != nil {
+				slog.Error("stream: job fetch failed", "id", id, "err", err)
+				return
+			}
+
+			data, _ := json.Marshal(job)
+			fmt.Fprintf(w, "data: %s\n\n", data)
+			flusher.Flush()
+
+			if job.Status == models.JobCompleted || job.Status == models.JobFailed {
+				return
+			}
+		}
+	}
 }
 
 func (s *Server) handleSubmitJob(w http.ResponseWriter, r *http.Request) {

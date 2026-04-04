@@ -192,6 +192,31 @@ paths:
         '501':
           description: Persistence disabled
 
+  /jobs/{id}/stream:
+    get:
+      summary: Stream job progress (SSE)
+      description: Returns a Server-Sent Events stream providing real-time status and progress updates for a specific job.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Job UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: SSE stream initiated
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Data chunks containing JSON-serialized Job objects prefixed with 'data:'
+        '400':
+          description: Missing job ID
+        '501':
+          description: Persistence disabled
+
   /dns:
     get:
       summary: List enriched DNS events

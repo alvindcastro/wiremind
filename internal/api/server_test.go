@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
@@ -189,6 +190,67 @@ func TestServerJobs(t *testing.T) {
 
 		if w.Code != http.StatusBadRequest {
 			t.Errorf("Expected status 400, got %d", w.Code)
+		}
+	})
+}
+
+func TestServerJobStream(t *testing.T) {
+	st := setupTestStore(t)
+	server := NewServer(&config.Config{}, nil, st, nil)
+
+	jobID := "test-job-stream"
+	job := &models.Job{
+		ID:     jobID,
+		Status: models.JobPending,
+	}
+	st.SaveJob(job)
+
+	t.Run("GET /api/v1/jobs/{id}/stream", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/v1/jobs/"+jobID+"/stream", nil)
+		// Use PathValue for standard library mux
+		req.SetPathValue("id", jobID)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		req = req.WithContext(ctx)
+
+		w := httptest.NewRecorder()
+
+		// Run handleJobStream in a goroutine because it's a blocking loop
+		done := make(chan bool)
+		go func() {
+			server.handleJobStream(w, req)
+			done <- true
+		}()
+
+		// Wait for at least one ticker cycle (2s)
+		// To speed up tests we could mock the ticker, but for a simple test we just wait a bit
+		// Actually, let's update the job status in the background to trigger completion
+		go func() {
+			time.Sleep(2500 * time.Millisecond)
+			job.Status = models.JobCompleted
+			st.SaveJob(job)
+			// Wait another cycle for the stream to pick up completion and exit
+		}()
+
+		select {
+		case <-done:
+			// Success
+		case <-time.After(6 * time.Second):
+			cancel()
+			t.Fatal("Test timed out waiting for job stream to complete")
+		}
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", w.Code)
+		}
+
+		if w.Header().Get("Content-Type") != "text/event-stream" {
+			t.Errorf("Expected content-type text/event-stream, got %s", w.Header().Get("Content-Type"))
+		}
+
+		// Verify we got some data
+		if w.Body.Len() == 0 {
+			t.Error("Expected stream data, got empty body")
 		}
 	})
 }

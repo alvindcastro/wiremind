@@ -18,6 +18,7 @@ import (
 	"wiremind/internal/api"
 	"wiremind/internal/enrichment"
 	"wiremind/internal/input"
+	"wiremind/internal/models"
 	"wiremind/internal/output"
 	"wiremind/internal/parser"
 	"wiremind/internal/queue"
@@ -63,6 +64,12 @@ var workerCmd = &cobra.Command{
 	RunE:  runWorker,
 }
 
+var serveCmd = &cobra.Command{
+	Use:   "serve",
+	Short: "Start the HTTP API server without parsing (connects to existing DB)",
+	RunE:  runServe,
+}
+
 var (
 	flagInput     string
 	flagFile      string
@@ -83,9 +90,11 @@ func init() {
 	parseCmd.Flags().BoolVar(&flagAsync, "async", false, "Push job to Redis instead of processing immediately")
 
 	workerCmd.Flags().StringVar(&flagConfig, "config", "config/config.yaml", "Path to config file")
+	serveCmd.Flags().StringVar(&flagConfig, "config", "config/config.yaml", "Path to config file")
 
 	rootCmd.AddCommand(parseCmd)
 	rootCmd.AddCommand(workerCmd)
+	rootCmd.AddCommand(serveCmd)
 }
 
 func runParse(cmd *cobra.Command, args []string) error {
@@ -339,4 +348,48 @@ func runWorker(cmd *cobra.Command, args []string) error {
 			slog.Info("job completed", "job_id", job.ID, "packets", result.Stats.TotalPackets)
 		}
 	}
+}
+
+func runServe(cmd *cobra.Command, args []string) error {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
+
+	cfg, err := config.Load(flagConfig)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	initSentry(cfg.Sentry)
+	defer sentry.Flush(2 * time.Second)
+
+	ep, err := enrichment.NewPipeline(cfg)
+	if err != nil {
+		return fmt.Errorf("init enrichment pipeline: %w", err)
+	}
+	defer ep.Close()
+
+	var db *store.PostgresStore
+	if cfg.Postgres.Enabled {
+		db, err = store.NewPostgresStore(cfg.Postgres)
+		if err != nil {
+			slog.Warn("failed to connect to postgres", "err", err)
+		} else {
+			defer db.Close()
+		}
+	}
+
+	var q *queue.RedisQueue
+	if cfg.Redis.Enabled {
+		q, err = queue.NewRedisQueue(cfg.Redis)
+		if err != nil {
+			slog.Warn("failed to connect to redis, async submission disabled", "err", err)
+		} else {
+			defer q.Close()
+		}
+	}
+
+	srv := api.NewServer(cfg, ep, db, q)
+	return srv.Start()
 }

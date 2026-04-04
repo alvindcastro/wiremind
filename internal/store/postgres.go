@@ -10,6 +10,7 @@ import (
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
 )
 
@@ -24,7 +25,8 @@ func NewPostgresStore(cfg config.PostgresConfig) (*PostgresStore, error) {
 		cfg.Host, cfg.User, cfg.Password, cfg.DBName, cfg.Port, cfg.SSLMode)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
+		Logger:                                   logger.Default.LogMode(logger.Silent),
+		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("postgres: connect: %w", err)
@@ -47,16 +49,22 @@ func NewPostgresStore(cfg config.PostgresConfig) (*PostgresStore, error) {
 }
 
 // AutoMigrate ensures all tables exist and match the GORM models.
+// Uses a Postgres advisory lock so concurrent service startups don't race.
 func (s *PostgresStore) AutoMigrate() error {
+	if err := s.db.Exec("SELECT pg_advisory_lock(7743382910)").Error; err != nil {
+		return fmt.Errorf("advisory lock: %w", err)
+	}
+	defer s.db.Exec("SELECT pg_advisory_unlock(7743382910)")
+
 	return s.db.AutoMigrate(
 		&models.Job{},
+		&models.EnrichedFlow{},
 		&models.Flow{},
 		&models.FlowHealth{},
 		&models.DNSEvent{},
 		&models.HTTPEvent{},
 		&models.TLSEvent{},
 		&models.ICMPEvent{},
-		&models.EnrichedFlow{},
 		&models.EnrichedDNSEvent{},
 		&models.EnrichedHTTPEvent{},
 		&models.EnrichedTLSEvent{},
@@ -137,59 +145,70 @@ func (s *PostgresStore) GetJobs(limit int) ([]models.Job, error) {
 // SaveEnrichedResult persists a batch of enriched forensics data.
 func (s *PostgresStore) SaveEnrichedResult(res enrichment.EnrichedResult) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// 1. Save Flows (core and enriched)
+		// 1. Save Flows (core and enriched) — upsert on flow_id to handle duplicate 5-tuples
 		for _, ef := range res.Flows {
-			// Save core flow first (EnrichedFlow refers to it)
-			if err := tx.Save(&ef.Flow).Error; err != nil {
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "flow_id"}},
+				DoUpdates: clause.AssignmentColumns([]string{"packet_count", "byte_count", "last_seen", "state", "updated_at"}),
+			}).Create(&ef.Flow).Error; err != nil {
 				return err
 			}
-			if err := tx.Save(&ef).Error; err != nil {
+			if err := tx.Session(&gorm.Session{FullSaveAssociations: false}).
+				Clauses(clause.OnConflict{
+					Columns:   []clause.Column{{Name: "flow_id"}},
+					DoUpdates: clause.AssignmentColumns([]string{"src_threat", "dst_threat", "entropy_score", "is_beacon", "beacon_interval_s", "beacon_jitter", "updated_at"}),
+				}).Create(&ef).Error; err != nil {
 				return err
 			}
 			if ef.FlowHealth != nil {
-				if err := tx.Save(ef.FlowHealth).Error; err != nil {
+				if err := tx.Clauses(clause.OnConflict{
+					Columns:   []clause.Column{{Name: "flow_id"}},
+					DoUpdates: clause.AssignmentColumns([]string{"retransmissions", "rst_count", "zero_window_count", "dup_ack_count", "blocked", "updated_at"}),
+				}).Create(ef.FlowHealth).Error; err != nil {
 					return err
 				}
 			}
 		}
 
-		// 2. Save Events
+		// 2. Save Events — use Create with DoNothing to skip duplicates
+		noConflict := clause.OnConflict{DoNothing: true}
+
 		for _, e := range res.DNS {
-			if err := tx.Save(&e.Event).Error; err != nil {
+			if err := tx.Clauses(noConflict).Create(&e.Event).Error; err != nil {
 				return err
 			}
 			e.EventID = e.Event.ID
-			if err := tx.Save(&e).Error; err != nil {
+			if err := tx.Session(&gorm.Session{FullSaveAssociations: false}).Clauses(noConflict).Create(&e).Error; err != nil {
 				return err
 			}
 		}
 
 		for _, e := range res.HTTP {
-			if err := tx.Save(&e.Event).Error; err != nil {
+			if err := tx.Clauses(noConflict).Create(&e.Event).Error; err != nil {
 				return err
 			}
 			e.EventID = e.Event.ID
-			if err := tx.Save(&e).Error; err != nil {
+			if err := tx.Session(&gorm.Session{FullSaveAssociations: false}).Clauses(noConflict).Create(&e).Error; err != nil {
 				return err
 			}
 		}
 
 		for _, e := range res.TLS {
-			if err := tx.Save(&e.Event).Error; err != nil {
+			if err := tx.Clauses(noConflict).Create(&e.Event).Error; err != nil {
 				return err
 			}
 			e.EventID = e.Event.ID
-			if err := tx.Save(&e).Error; err != nil {
+			if err := tx.Session(&gorm.Session{FullSaveAssociations: false}).Clauses(noConflict).Create(&e).Error; err != nil {
 				return err
 			}
 		}
 
 		for _, e := range res.ICMP {
-			if err := tx.Save(&e.Event).Error; err != nil {
+			if err := tx.Clauses(noConflict).Create(&e.Event).Error; err != nil {
 				return err
 			}
 			e.EventID = e.Event.ID
-			if err := tx.Save(&e).Error; err != nil {
+			if err := tx.Session(&gorm.Session{FullSaveAssociations: false}).Clauses(noConflict).Create(&e).Error; err != nil {
 				return err
 			}
 		}
