@@ -271,7 +271,7 @@ are needed in production. Dev workflow (`npm run dev` + Vite proxy) is unchanged
   - Confirm `src/api/client.ts` uses `/api` (relative) — not hard-coded `localhost:8765`
   - Both Vite proxy (dev) and nginx proxy (Docker) route `/api/*` to the backend — no env var needed
 
-- [ ] **U7.5** `wiremind`: Add `wiremind-ui` service to `docker-compose.yaml`
+- [x] **U7.5** `wiremind`: Add `wiremind-ui` service to `docker-compose.yaml`
   ```yaml
   wiremind-ui:
     build:

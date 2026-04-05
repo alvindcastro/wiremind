@@ -84,6 +84,19 @@ services:
     volumes:
       - redis_data:/data
 
+  # --- UI & Frontend ---
+
+  # Wiremind UI (React + Nginx)
+  wiremind-ui:
+    build:
+      context: ../wiremind-ui
+      dockerfile: Dockerfile
+    ports:
+      - "3001:80"
+    depends_on:
+      forensics:
+        condition: service_started
+
   # --- Observability & Infrastructure Expansion ---
 
   # Prometheus Metrics
