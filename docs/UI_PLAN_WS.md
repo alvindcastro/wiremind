@@ -284,7 +284,7 @@ are needed in production. Dev workflow (`npm run dev` + Vite proxy) is unchanged
         condition: service_started
   ```
 
-- [ ] **U7.6** `wiremind`: Add `docker-compose.override.yaml` for local dev
+- [x] **U7.6** `wiremind`: Add `docker-compose.override.yaml` for local dev
   - Override `forensics` to expose port `8765` to the host so `npm run dev` Vite proxy still works
   - Keeps main `docker-compose.yaml` clean (no host-exposed backend port in prod-like mode)
 

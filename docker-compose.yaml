@@ -4,8 +4,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "8765:8765"
     environment:
       - DB_ENABLED=true
       - DB_HOST=postgres

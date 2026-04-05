@@ -1,0 +1,5 @@
+services:
+  # Expose Go API to host for local frontend development (npm run dev)
+  forensics:
+    ports:
+      - "8765:8765"

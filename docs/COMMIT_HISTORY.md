@@ -72,12 +72,13 @@ where in the codebase it lives, when it happened, and how the code works.
 53. [Infrastructure fixes — Dockerfile, `serve` command, Docker Compose, advisory lock](#step-53---2026-04-03--1cf5525)
 54. [Data-path fixes — `IPAddr` type, FlowID propagation, agent field names](#step-54---2026-04-03--67457dd)
 55. [Add UI service to Docker Compose (Phase 7 - U7.5)](#55-add-ui-service-to-docker-compose-phase-7---u75)
+56. [Add Docker Compose override for local dev (Phase 7 - U7.6)](#56-add-docker-compose-override-for-local-dev-phase-7---u76)
 
 ---
 
 ## 55. Add UI service to Docker Compose (Phase 7 - U7.5)
 
-**Commits:** `pending`
+**Commits:** `16358ba`
 **Date:** 2026-04-04
 
 ### What
@@ -89,6 +90,26 @@ To enable a single-command bring-up of the entire Wiremind stack, including the 
 ### Where
 ```
 docker-compose.yaml
+docs/UI_PLAN_WS.md
+```
+
+---
+
+## 56. Add Docker Compose override for local dev (Phase 7 - U7.6)
+
+**Commits:** `pending`
+**Date:** 2026-04-04
+
+### What
+Created `docker-compose.override.yaml` and moved the `forensics` port mapping (`8765:8765`) from the main `docker-compose.yaml` to the override file.
+
+### Why
+To keep the main `docker-compose.yaml` clean and "production-like" (where services communicate internally via Docker network) while allowing local development tools (like the Vite dev server for the UI) to reach the backend API on the host. Docker Compose automatically applies `docker-compose.override.yaml` when running locally.
+
+### Where
+```
+docker-compose.yaml
+docker-compose.override.yaml
 docs/UI_PLAN_WS.md
 ```
 
