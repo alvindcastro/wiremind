@@ -71,6 +71,26 @@ where in the codebase it lives, when it happened, and how the code works.
 
 53. [Infrastructure fixes — Dockerfile, `serve` command, Docker Compose, advisory lock](#step-53---2026-04-03--1cf5525)
 54. [Data-path fixes — `IPAddr` type, FlowID propagation, agent field names](#step-54---2026-04-03--67457dd)
+55. [Add UI service to Docker Compose (Phase 7 - U7.5)](#55-add-ui-service-to-docker-compose-phase-7---u75)
+
+---
+
+## 55. Add UI service to Docker Compose (Phase 7 - U7.5)
+
+**Commits:** `pending`
+**Date:** 2026-04-04
+
+### What
+Added the `wiremind-ui` service to the main `docker-compose.yaml` file. This service builds the React frontend from the sibling `wiremind-ui` repository and serves it via Nginx on port 3001. It depends on the `forensics` API service.
+
+### Why
+To enable a single-command bring-up of the entire Wiremind stack, including the frontend. This follows the architecture where the UI is served by Nginx, which also proxies API requests to the Go backend, simplifying CORS and deployment.
+
+### Where
+```
+docker-compose.yaml
+docs/UI_PLAN_WS.md
+```
 
 ---
 
