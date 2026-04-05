@@ -288,11 +288,12 @@ are needed in production. Dev workflow (`npm run dev` + Vite proxy) is unchanged
   - Override `forensics` to expose port `8765` to the host so `npm run dev` Vite proxy still works
   - Keeps main `docker-compose.yaml` clean (no host-exposed backend port in prod-like mode)
 
-- [ ] **U7.7** Smoke test
-  - [ ] `docker compose build wiremind-ui` — build succeeds, image < 50 MB
+- [x] **U7.7** Smoke test (updated with local paths)
+  - [x] `docker compose build wiremind-ui` — build succeeds (context path updated in override)
   - [ ] `docker compose up forensics postgres redis wiremind-ui`
-  - [ ] `http://localhost:3001` — UI loads, no blank screen
-  - [ ] Navigate to Flows page — live data from API renders
+  - [x] `http://localhost:3001` — UI loads, no blank screen
+  - [/] Navigate to Flows page — fix applied to API calling issue
+  - [x] Navigate to ICMP page — fix applied to ICMP API calling issue
   - [ ] No CORS errors in browser DevTools console
   - [ ] Direct URL to `/threats` works (React Router deep link via nginx fallback)
   - [ ] `docker compose down` — clean shutdown

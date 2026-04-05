@@ -3,3 +3,8 @@ services:
   forensics:
     ports:
       - "8765:8765"
+
+  # Wiremind UI: Update context for local environment layout
+  wiremind-ui:
+    build:
+      context: ../../WebstormProjects/wiremind-ui
