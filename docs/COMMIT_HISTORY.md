@@ -73,6 +73,8 @@ where in the codebase it lives, when it happened, and how the code works.
 54. [Data-path fixes — `IPAddr` type, FlowID propagation, agent field names](#step-54---2026-04-03--67457dd)
 55. [Add UI service to Docker Compose (Phase 7 - U7.5)](#55-add-ui-service-to-docker-compose-phase-7---u75)
 56. [Add Docker Compose override for local dev (Phase 7 - U7.6)](#56-add-docker-compose-override-for-local-dev-phase-7---u76)
+57. [Environment-specific path adjustment for UI integration](#57-environment-specific-path-adjustment-for-ui-integration)
+77. [UI rebuild and ICMP API fix (Phase 7 - U7.7)](#77-ui-rebuild-and-icmp-api-fix-phase-7---u77)
 
 ---
 
@@ -2120,3 +2122,61 @@ After these fixes the full E2E pipeline produces:
 | DNS / TLS / HTTP / ICMP events | 169 / 65 / 4 / 3 |
 | AI findings | **2,816** (was 0) |
 | Analysis time (agents) | ~124 ms |
+
+---
+
+## 57. Environment-specific path adjustment for UI integration
+
+**Commits:** `78864db`
+**Date:** 2026-04-04
+
+### What
+Updated `docker-compose.override.yaml` to include the specific build context path for `wiremind-ui` based on the user's environment: `../../WebstormProjects/wiremind-ui`. Also created a dedicated UI integration testing guide.
+
+### Why
+The default `docker-compose.yaml` assumed a sibling directory (`../wiremind-ui`), but in this environment, the repositories are located in different parent directories (`GolandProjects` vs `WebstormProjects`). Using the override ensures the build command works correctly without changing the base configuration for other environments. The testing guide provides clear verification steps for the U7.7 smoke test.
+
+### Where
+```
+docker-compose.override.yaml
+docs/UI_PLAN_WS.md
+docs/UI_INTEGRATION_TESTING.md
+```
+
+---
+
+## 58. Create UI integration testing guide (Phase 7 - U7.7)
+
+**Commits:** `e8f47cc`
+**Date:** 2026-04-04
+
+### What
+Created `docs/UI_INTEGRATION_TESTING.md` containing all necessary Docker commands and verification steps (smoke test) for the full-stack integration.
+
+### Why
+To fulfill the requirement for assisting with Docker commands to check and verify the UI integration (U7.7). This provides a single source of truth for testing the connection between the Go backend and the React frontend in the specific local environment.
+
+### Where
+```
+docs/UI_INTEGRATION_TESTING.md
+```
+
+---
+
+## 77. UI rebuild and ICMP API fix (Phase 7 - U7.7)
+
+**Commits:** `pending`
+**Date:** 2026-04-04
+
+### What
+Rebuilt the `wiremind-ui` Docker image after applying a fix for ICMP API calling issues in the frontend code.
+
+### Why
+Initial smoke tests revealed that while the UI loaded at `localhost:3001`, it was failing to correctly fetch ICMP data from the backend. The fix ensures the ICMP page can correctly render captured protocol events via the Nginx proxy.
+
+### Where
+```
+wiremind-ui/ (source)
+docker-compose.yaml
+docs/UI_PLAN_WS.md
+```
