@@ -9,7 +9,7 @@ Step-by-step guide to get a full end-to-end analysis running from cold start.
 | Tool | Version | Notes |
 |---|---|---|
 | Docker Desktop | 4.x+ | With Compose v2 (`docker compose`) |
-| Go | 1.22+ | Only needed for local (non-Docker) builds |
+| Go | 1.24+ | Only needed for local (non-Docker) builds; matches `go.mod` |
 | Python | 3.12+ | Only needed for local (non-Docker) agent runs |
 | `libpcap` | any | Linux: `apt install libpcap-dev` · Mac: `brew install libpcap` · Windows: Npcap |
 

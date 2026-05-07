@@ -650,7 +650,7 @@ class CorrelatedFindings(BaseModel):
 - [x] PostgreSQL store (structured findings, audit trail, GORM)
 - [x] Redis job queue (handle multiple PCAPs concurrently)
 - [x] OpenAPI/Swagger specification (`docs/openapi.yaml`) ✓
-- [ ] SSE progress streaming (real-time status to n8n / UI)
+- [x] SSE progress streaming (real-time status to n8n / UI)
 - [ ] JWT auth on Go API
 - [x] OpenTelemetry tracing (Go + Python) ✓
 - [x] Structured logging (slog in Go, structlog in Python) ✓
@@ -701,7 +701,7 @@ that contains DNS beaconing + HTTP C2 — exercises all 4 sub-agents.
   - [ ] 9B: Redis cache, retry backoff, worker scaling, resource limits, pruning, Pyroscope
   - [ ] 9C: n8n delivery, Slack HITL, email, Jira, S3 archival
 - [ ] [Phase 10 (Extended Input Sources)](PHASE9.md#phase-10--extended-input-sources) — SSH, S3, VPC Flows, Zeek, Kafka
-- [ ] [Phase 11 (Frontend Dashboard)](PHASE9.md#phase-11--frontend-dashboard) — React + Vite UI (see [UI_PLAN.md](UI_PLAN.md))
+- [ ] [Phase 11 (Frontend Dashboard)](PHASE9.md#phase-11--frontend-dashboard) — React + Vite UI (see [UI_PLAN_WS.md](UI_PLAN_WS.md))
 - [ ] [Phase 12 (Advanced AI)](PHASE9.md#phase-12--advanced-ai--learning) — cost controls, feedback loop, multi-LLM
 - [ ] [Nice to Have](NICE_TO_HAVE.md) — Feature Backlog
 

@@ -102,7 +102,7 @@ Goal: cover cloud and enterprise environments beyond local PCAP files.
 
 Goal: browser UI for submitting jobs, viewing findings, and managing IOCs.
 
-> Full detail in [UI_PLAN.md](UI_PLAN.md).
+> Full detail in [UI_PLAN_WS.md](UI_PLAN_WS.md).
 > Separate repo: `wiremind-ui` (React 19 + Vite + TypeScript + Tailwind + shadcn/ui).
 > API types generated from `docs/openapi.yaml` via `openapi-typescript`.
 
@@ -110,9 +110,9 @@ Goal: browser UI for submitting jobs, viewing findings, and managing IOCs.
 
 | UI Phase | Goal | Status |
 |---|---|---|
-| U1 | Scaffold + CORS config + routing | ⬜ Not started |
-| U2 | Core data tables (Flows, Threats, DNS, TLS, HTTP, ICMP) | ⬜ Not started |
-| U3 | Job management + SSE live progress | ⬜ Not started |
+| U1 | Scaffold + CORS config + routing | ✅ Done |
+| U2 | Core data tables (Flows, Threats, DNS, TLS, HTTP, ICMP) | ✅ Done |
+| U3 | Job management + SSE live progress | ⬜ Next |
 | U4 | Dashboard (stats cards, charts, recent jobs) | ⬜ Not started |
 | U5 | Network graph (Cytoscape.js IP relationship explorer) | ⬜ Not started |
 | U6 | Config & control (IOC CRUD, pipeline editor, capture start/stop) | ⬜ Not started |
@@ -153,5 +153,5 @@ Goal: improve agent accuracy over time and reduce LLM cost.
 | 9B | Performance & Reliability | ⬜ Not started |
 | 9C | n8n Delivery | ⬜ Not started |
 | 10  | Extended Input Sources | ⬜ Not started |
-| 11  | Frontend Dashboard | 🟡 Planning (see [UI_PLAN.md](UI_PLAN.md)) |
+| 11  | Frontend Dashboard | 🟡 In Progress (U1/U2 done; see [UI_PLAN_WS.md](UI_PLAN_WS.md)) |
 | 12  | Advanced AI & Learning | ⬜ Not started |
