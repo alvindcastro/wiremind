@@ -90,7 +90,9 @@ PCAP / live capture / pipe
 | **Phase 6** | 🚧 | n8n delivery (Slack · email · Jira) |
 | **Phase 7** | ✅ | ChromaDB vector memory |
 | **Phase 8** | 🚧 | Productionization, observability, auth |
-| **Phase 11** | 🗓 | [Frontend dashboard](docs/UI_PLAN.md) — React + Vite · TypeScript · shadcn/ui |
+| **Phase 11** | 🚧 | [Frontend dashboard](docs/UI_PLAN_WS.md) — separate `wiremind-ui` repo; U1/U2 done, job management next |
+
+For coding-agent context, start with [AGENTS.md](AGENTS.md), [CODEX_AGENTS.md](docs/CODEX_AGENTS.md), [TDD_RULES.md](docs/TDD_RULES.md), [CODEX_PHASE_CHECKLISTS.md](docs/CODEX_PHASE_CHECKLISTS.md), [CODEX_TASK_PROMPTS.md](docs/CODEX_TASK_PROMPTS.md), [OBSERVABILITY_ROADMAP.md](docs/OBSERVABILITY_ROADMAP.md), and [AI_COSTING.md](docs/AI_COSTING.md).
 
 ---
 

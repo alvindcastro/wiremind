@@ -47,6 +47,7 @@ Goal: eliminate fragile in-process state and ensure graceful degradation under l
 - [ ] **Worker horizontal scaling** — document and test running multiple `forensics worker` replicas
   - Redis consumer group semantics to avoid duplicate job processing
   - Health endpoint reports active worker count
+  - Observability details: [OBSERVABILITY_ROADMAP.md](OBSERVABILITY_ROADMAP.md#o1---runtime-health-and-readiness)
 - [ ] **Resource limits** — add Docker Compose `deploy.resources` limits for all services
   - Go forensics: 1 CPU / 512 MB, Go worker: 2 CPU / 1 GB
   - LLM token cap: configurable `max_tokens_per_run` in config
@@ -57,6 +58,7 @@ Goal: eliminate fragile in-process state and ensure graceful degradation under l
 - [ ] **Continuous profiling (Pyroscope)** — Go pprof integration via `pyroscope-go` agent
   - Push profiles to self-hosted Pyroscope server (add to Docker Compose)
   - Profile both `forensics serve` (API) and `forensics worker`
+  - Observability details: [OBSERVABILITY_ROADMAP.md](OBSERVABILITY_ROADMAP.md#o6---profiling-and-resource-visibility)
 
 ---
 
@@ -74,10 +76,13 @@ Goal: close the loop from analysis completion → analyst notification → archi
   - Severity, top finding, affected hosts, link to full report
   - Approve / Reject buttons for HITL checkpoint
 - [ ] **HITL gate** — n8n waits for analyst Slack response; on Approve → continue; on Reject → flag job as `analyst_rejected`
+  - Observability contract must resolve whether this is a job status or separate delivery/HITL state.
 - [ ] **Email delivery** — send PDF/Markdown report as attachment to configured recipients
 - [ ] **Jira ticket creation** — create issue in configured project with findings summary and IOC list in description
 - [ ] **S3 archival** — upload PCAP + `findings.json` + `report.md` to `s3://wiremind-archive/{job_id}/`
 - [ ] **Confluence page** — publish full technical report as a Confluence page under the security space
+
+Delivery observability details are tracked in [OBSERVABILITY_ROADMAP.md](OBSERVABILITY_ROADMAP.md#o7---delivery-and-workflow-observability).
 
 ---
 
@@ -102,7 +107,7 @@ Goal: cover cloud and enterprise environments beyond local PCAP files.
 
 Goal: browser UI for submitting jobs, viewing findings, and managing IOCs.
 
-> Full detail in [UI_PLAN.md](UI_PLAN.md).
+> Full detail in [UI_PLAN_WS.md](UI_PLAN_WS.md).
 > Separate repo: `wiremind-ui` (React 19 + Vite + TypeScript + Tailwind + shadcn/ui).
 > API types generated from `docs/openapi.yaml` via `openapi-typescript`.
 
@@ -110,9 +115,9 @@ Goal: browser UI for submitting jobs, viewing findings, and managing IOCs.
 
 | UI Phase | Goal | Status |
 |---|---|---|
-| U1 | Scaffold + CORS config + routing | ⬜ Not started |
-| U2 | Core data tables (Flows, Threats, DNS, TLS, HTTP, ICMP) | ⬜ Not started |
-| U3 | Job management + SSE live progress | ⬜ Not started |
+| U1 | Scaffold + CORS config + routing | ✅ Done |
+| U2 | Core data tables (Flows, Threats, DNS, TLS, HTTP, ICMP) | ✅ Done |
+| U3 | Job management + SSE live progress | ⬜ Next |
 | U4 | Dashboard (stats cards, charts, recent jobs) | ⬜ Not started |
 | U5 | Network graph (Cytoscape.js IP relationship explorer) | ⬜ Not started |
 | U6 | Config & control (IOC CRUD, pipeline editor, capture start/stop) | ⬜ Not started |
@@ -133,15 +138,25 @@ Goal: browser UI for submitting jobs, viewing findings, and managing IOCs.
 
 Goal: improve agent accuracy over time and reduce LLM cost.
 
+Cost governance details live in [AI_COSTING.md](AI_COSTING.md). Future code work
+must use fake providers first and follow [TDD_RULES.md](TDD_RULES.md).
+
 ### Tasks
 
-- [ ] **LLM cost controls** — `max_tokens_per_run` config; hard cap enforced in Python before each LLM call
+- [ ] **LLM cost controls** — provider-neutral pricing catalog, budget config, pre-call estimation, hard caps before each model call, and structured `budget_exhausted` metadata
+  - Pricing catalog: provider, model, currency, unit size, input/output token rates, optional cached-token rates, fixed call cost, and effective date
+  - Budget scopes: per call, per agent, per run, per job, and future daily/monthly operator limits
+  - Guard behavior: fail closed on unknown pricing, skip optional critique/fallback calls when budget is exhausted, preserve deterministic findings
+  - Accounting: reconcile estimated cost with provider-reported usage from fake-provider tests before live provider wiring
+  - Observability: expose selected provider, model, prompt tokens, completion tokens, estimated cost, actual cost, budget remaining, skipped-call reason, fallback reason, and pricing version
 - [ ] **Analyst feedback loop** — HITL corrections fed back into ChromaDB as negative examples
 - [ ] **False positive suppression** — agent confidence scores adjusted based on historical accuracy per rule
 - [ ] **Multi-LLM fallback** — GPT-4o as fallback when Claude API is unavailable; `LLM_PROVIDER` env var
 - [ ] **MITRE ATT&CK Navigator export** — generate `layer.json` files importable into ATT&CK Navigator
 - [ ] **Confidence calibration** — Platt scaling on agent confidence scores using labelled investigation history
 - [ ] **Agent self-critique** — add a "red-team" LLM pass that challenges each finding before reporting
+
+AI observability details are tracked in [OBSERVABILITY_ROADMAP.md](OBSERVABILITY_ROADMAP.md#o5---ai-observability-and-quality).
 
 ---
 
@@ -153,5 +168,5 @@ Goal: improve agent accuracy over time and reduce LLM cost.
 | 9B | Performance & Reliability | ⬜ Not started |
 | 9C | n8n Delivery | ⬜ Not started |
 | 10  | Extended Input Sources | ⬜ Not started |
-| 11  | Frontend Dashboard | 🟡 Planning (see [UI_PLAN.md](UI_PLAN.md)) |
+| 11  | Frontend Dashboard | 🟡 In Progress (U1/U2 done; see [UI_PLAN_WS.md](UI_PLAN_WS.md)) |
 | 12  | Advanced AI & Learning | ⬜ Not started |

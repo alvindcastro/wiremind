@@ -443,9 +443,9 @@ github.com/spf13/cobra
 
 ---
 
-## Phase 3 — [LangGraph Sub-Agents](PHASE3.md) 🚧
+## Phase 3 — [LangGraph Sub-Agents](PHASE3.md) ✅
 
-**Goal:** Four specialist agents reason over their protocol slice in parallel.
+**Goal:** Five specialist agents reason over their protocol slice in parallel.
 
 **Technology:** LangGraph, Python, Anthropic Claude API
 
@@ -455,7 +455,8 @@ orchestrator
     ├── dns_agent      (parallel)
     ├── tls_agent      (parallel)
     ├── http_agent     (parallel)
-    └── lateral_agent  (parallel)
+    ├── lateral_agent  (parallel)
+    └── beacon_agent   (parallel)
 ```
 
 **Each agent:**
@@ -536,16 +537,22 @@ GET  /peers?ip=x.x.x.x          # other internal IPs talking to same dst
 - **RST storms on internal traffic** — IPS/host rejecting repeated connection attempts
 - **Slow flows on lateral paths** — throttled or congested lateral movement channels
 
+**Beaconing Agent focuses on:**
+- Flows already flagged `is_beacon=true` by Go jitter analysis
+- Low-jitter C2 heartbeat candidates
+- Repeated external destinations with regular intervals
+- Confidence derived from beacon jitter and interval stability
+
 ---
 
-## Phase 4 — Orchestrator & Correlation 🚧
+## Phase 4 — Orchestrator & Correlation ✅
 
 **Goal:** Merge agent findings into a coherent attack narrative.
 
 **Technology:** LangGraph orchestrator node, Claude
 
 **What the orchestrator does:**
-1. Collects all four `AgentVerdict` objects
+1. Collects all specialist `AgentVerdict` objects
 2. Cross-correlates: same IP appearing in multiple agent findings = higher confidence
 3. Reconstructs attack chain: initial access → persistence → C2 → exfiltration
 4. Maps to MITRE ATT&CK tactics in sequence
@@ -572,7 +579,7 @@ class CorrelatedFindings(BaseModel):
 
 ---
 
-## Phase 5 — Report Generation 🚧
+## Phase 5 — Report Generation ✅
 
 **Goal:** Transform structured findings into human-readable deliverables.
 
@@ -621,7 +628,7 @@ class CorrelatedFindings(BaseModel):
 
 ---
 
-## Phase 7 — Memory & Learning 🚧
+## Phase 7 — Memory & Learning ✅
 
 **Goal:** System improves with each investigation.
 
@@ -650,7 +657,7 @@ class CorrelatedFindings(BaseModel):
 - [x] PostgreSQL store (structured findings, audit trail, GORM)
 - [x] Redis job queue (handle multiple PCAPs concurrently)
 - [x] OpenAPI/Swagger specification (`docs/openapi.yaml`) ✓
-- [ ] SSE progress streaming (real-time status to n8n / UI)
+- [x] SSE progress streaming (real-time status to n8n / UI)
 - [ ] JWT auth on Go API
 - [x] OpenTelemetry tracing (Go + Python) ✓
 - [x] Structured logging (slog in Go, structlog in Python) ✓
@@ -662,7 +669,7 @@ class CorrelatedFindings(BaseModel):
 - [x] Loki/Promtail Log Aggregation ✓
 - [x] Grafana Dashboards ✓
 - [x] Standalone ChromaDB ✓
-- [ ] Cost controls (max tokens per run, LLM spend cap)
+- [ ] Cost controls (max tokens per run, LLM spend cap) — see [AI_COSTING.md](AI_COSTING.md)
 - [ ] Retry logic with exponential backoff on all external API calls
 - [ ] Secret Management (Vault)
 - [ ] Continuous Profiling (Pyroscope)
@@ -681,11 +688,16 @@ class CorrelatedFindings(BaseModel):
 | Netresec | netresec.com/?page=PcapFiles | CTF + forensics focused |
 
 **Start with:** A malware-traffic-analysis.net sample from 2024-2025
-that contains DNS beaconing + HTTP C2 — exercises all 4 sub-agents.
+that contains DNS beaconing + HTTP C2 — exercises the specialist agents.
 
 ---
 
 ## Phase Build Order
+
+Codex execution checklists and future task prompts live in
+[CODEX_PHASE_CHECKLISTS.md](CODEX_PHASE_CHECKLISTS.md) and
+[CODEX_TASK_PROMPTS.md](CODEX_TASK_PROMPTS.md). Future code tasks must follow
+[TDD_RULES.md](TDD_RULES.md).
 
 - [x] Phase 1 (Go parser)
 - [x] Phase 2 (Go enrichment)
@@ -701,8 +713,8 @@ that contains DNS beaconing + HTTP C2 — exercises all 4 sub-agents.
   - [ ] 9B: Redis cache, retry backoff, worker scaling, resource limits, pruning, Pyroscope
   - [ ] 9C: n8n delivery, Slack HITL, email, Jira, S3 archival
 - [ ] [Phase 10 (Extended Input Sources)](PHASE9.md#phase-10--extended-input-sources) — SSH, S3, VPC Flows, Zeek, Kafka
-- [ ] [Phase 11 (Frontend Dashboard)](PHASE9.md#phase-11--frontend-dashboard) — React + Vite UI (see [UI_PLAN.md](UI_PLAN.md))
-- [ ] [Phase 12 (Advanced AI)](PHASE9.md#phase-12--advanced-ai--learning) — cost controls, feedback loop, multi-LLM
+- [ ] [Phase 11 (Frontend Dashboard)](PHASE9.md#phase-11--frontend-dashboard) — React + Vite UI (see [UI_PLAN_WS.md](UI_PLAN_WS.md))
+- [ ] [Phase 12 (Advanced AI)](PHASE9.md#phase-12--advanced-ai--learning) — cost controls ([AI_COSTING.md](AI_COSTING.md)), feedback loop, multi-LLM
 - [ ] [Nice to Have](NICE_TO_HAVE.md) — Feature Backlog
 
 ---

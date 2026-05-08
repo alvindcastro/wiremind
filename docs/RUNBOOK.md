@@ -9,7 +9,7 @@ Step-by-step guide to get a full end-to-end analysis running from cold start.
 | Tool | Version | Notes |
 |---|---|---|
 | Docker Desktop | 4.x+ | With Compose v2 (`docker compose`) |
-| Go | 1.22+ | Only needed for local (non-Docker) builds |
+| Go | 1.24+ | Only needed for local (non-Docker) builds; matches `go.mod` |
 | Python | 3.12+ | Only needed for local (non-Docker) agent runs |
 | `libpcap` | any | Linux: `apt install libpcap-dev` · Mac: `brew install libpcap` · Windows: Npcap |
 
@@ -278,9 +278,45 @@ python -m wiremind.main --url http://localhost:8765
 
 The orchestrator dispatches to DNS, TLS, HTTP, Lateral Movement, and Beaconing specialists, then produces a correlated report.
 
+### Planned AI Budget Controls
+
+AI costing is planned but not implemented yet. The canonical design is
+[AI_COSTING.md](AI_COSTING.md), and future code tasks must use fake providers and
+failing tests before live model wiring.
+
+Planned operator behavior:
+
+- If a provider/model has no pricing entry, production-like runs should fail
+  closed before making the call.
+- If the remaining run, agent, call, or job budget is insufficient, the
+  orchestrator should skip optional model work and emit structured
+  `budget_exhausted` metadata.
+- Deterministic parser, enrichment, IOC, beacon, and heuristic findings should
+  remain available even when model-backed reasoning is skipped.
+- Cost logs and reports should show provider, model, purpose, prompt tokens,
+  completion tokens, estimated cost, actual cost, pricing version, budget
+  remaining, skipped-call reason, and fallback reason without raw prompts or raw
+  packet evidence.
+
+Planned configuration names:
+
+```bash
+WIREMIND_AI_PRICING_FILE=config/ai_pricing.yaml
+WIREMIND_AI_MAX_TOKENS_PER_CALL=8000
+WIREMIND_AI_MAX_TOKENS_PER_RUN=50000
+WIREMIND_AI_MAX_ESTIMATED_COST_PER_RUN=5.00
+WIREMIND_AI_UNKNOWN_PRICE_POLICY=deny
+```
+
+These variables are reserved planning names; do not rely on them until a future
+TDD implementation task lands.
+
 ---
 
 ## 8. Observability UIs
+
+Detailed observability hardening tasks, smoke expectations, and future prompts
+live in [OBSERVABILITY_ROADMAP.md](OBSERVABILITY_ROADMAP.md).
 
 | UI | URL | Credentials |
 |---|---|---|
@@ -305,9 +341,42 @@ curl -s http://localhost:8765/openapi.yaml | head -5
 
 Open http://localhost:8765/docs in a browser to explore and test all endpoints interactively via Swagger UI.
 
+### Observability Smoke Commands
+
+Use these after `docker compose up --build` or when validating observability work:
+
+```bash
+# API health and metrics
+curl -i http://localhost:8765/health
+curl -s http://localhost:8765/metrics
+
+# Prometheus scrape targets
+curl -s http://localhost:9091/api/v1/targets
+
+# Loki labels/log indexing
+curl -s http://localhost:3100/loki/api/v1/labels
+
+# Recent service logs
+docker compose logs --tail=100 forensics worker promtail
+
+# Compose config sanity
+docker compose config
+```
+
+Expected observability hardening over time:
+
+- `/health` should evolve from a basic status endpoint into component health for Postgres, Redis, workers, queue depth, disk, and aggregate degraded/down status.
+- `/metrics` should include job, queue, worker, parser, enrichment, dependency, SSE, auth/rate, delivery, and AI-agent metrics without high-cardinality labels such as `job_id`.
+- Logs should include correlation fields such as `request_id`, `trace_id`, `job_id`, `worker_id`, `run_id`, stage, status, latency, and error class.
+- Jaeger should show job traces across API, queue, worker, parser, enrichment, persistence, Python agents, and delivery once tracing hardening is implemented.
+- Grafana dashboards and Prometheus alert rules should be source-controlled before they are considered production-ready.
+
 ---
 
 ## 9. Local development (no Docker)
+
+For future code changes, use the strict test-first workflow in
+[TDD_RULES.md](TDD_RULES.md) before making implementation edits.
 
 ### Go only
 
