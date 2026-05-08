@@ -3,6 +3,10 @@
 ## Goal
 Transform the `wiremind` forensics engine into a reliable, high-performance, and observable system ready for real-world deployment.
 
+The baseline observability services are tracked here. The detailed hardening
+roadmap, TDD gates, and future prompts live in
+[OBSERVABILITY_ROADMAP.md](OBSERVABILITY_ROADMAP.md).
+
 ---
 
 ## Checklist
@@ -22,7 +26,7 @@ Transform the `wiremind` forensics engine into a reliable, high-performance, and
 ### 👁️ Observability & Monitoring
 - [x] **Step 7: Advanced Health Checks** — `/health` endpoint checking DB, Redis, and Worker status.
 - [x] **Step 8: Structured Logging** — Implement `internal/logger` using `log/slog` (Go) and `structlog` (Python).
-- [x] **Step 9: Prometheus Metrics** — `/metrics` endpoint for lead counts, run times, and packet rates.
+- [x] **Step 9: Prometheus Metrics** — `/metrics` endpoint for API counts, run times, and packet rates.
 - [x] **Step 10: OpenTelemetry Tracing** — Distributed tracing across Go and Python agents using Jaeger. ✓
 - [x] **Step 11: OpenAPI/Swagger Specification** — Defined `docs/openapi.yaml` for all API endpoints. ✓
 - [x] **Step 24: SSE Progress Streaming** — Real-time status updates for long-running jobs. ✓
@@ -30,12 +34,23 @@ Transform the `wiremind` forensics engine into a reliable, high-performance, and
 - [x] **Step 20: Grafana Dashboards** — Visualize metrics from Prometheus and logs from Loki. ✓
 - [ ] **Step 23: Continuous Profiling (Pyroscope)** — Real-time performance profiling for Go and Python.
 
+### Observability Hardening Track
+- [ ] **O0: Contract and baseline reconciliation** — align `/health`, `/metrics`, jobs, SSE, OpenAPI, and runbook behavior.
+- [ ] **O1: Runtime health and readiness** — add Redis, queue, worker heartbeat, disk, and degraded-state details.
+- [ ] **O2: Metrics, dashboards, alerts, and SLOs** — expand job/queue/parser/dependency/SSE metrics and source-control Grafana/alert definitions.
+- [ ] **O3: Logs, correlation, audit, and Sentry** — standardize correlation fields, log shipping, redaction, and error capture.
+- [ ] **O4: Distributed tracing** — trace API → queue → worker → parser/enrichment → persistence → Python agents → delivery.
+- [ ] **O5: AI observability and quality** — add agent traces, eval metrics, token/cost telemetry, fallback visibility, and confidence calibration; cost policy is detailed in [AI_COSTING.md](AI_COSTING.md).
+- [ ] **O6: Profiling and resource visibility** — gate pprof/Pyroscope and document safe profiling.
+- [ ] **O7: Delivery observability** — track n8n workflow runs, HITL decisions, delivery attempts, artifacts, and failures.
+- [ ] **O8: Smoke and operations** — add exact smoke checks and failure drills.
+
 ### 🛠️ Refinement & AI Integration
 - [x] **Step 13: Entity Resolution** — Initial schema and correlation models for host/user tracking.
 - [x] **Step 25: Advanced Search & Filtering** — Implemented query parameters for IPs, protocols, and aggregate threat view. ✓
 - [ ] **Step 14: Persistent Cache** — Redis-backed cache for GeoIP and Threat Intel lookups.
 - [ ] **Step 15: API Rate Limiting** — Intelligent handling of VirusTotal/AbuseIPDB quotas.
-- [ ] **Step 16: Resource Limits** — Docker CPU/Memory limits and LLM token spend caps.
+- [ ] **Step 16: Resource Limits** — Docker CPU/Memory limits and LLM token spend caps; see [AI_COSTING.md](AI_COSTING.md) for provider-neutral budget phases.
 - [ ] **Step 17: Automated Pruning** — Purge old PCAPs and findings from Postgres/Redis.
 
 ---

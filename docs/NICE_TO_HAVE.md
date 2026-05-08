@@ -9,8 +9,8 @@ This document tracks "nice to have" features and future enhancements that are ou
 > **Full plan is in [UI_PLAN_WS.md](UI_PLAN_WS.md)** — phased breakdown, tech stack decision,
 > tasks, and WebStorm setup. The items below are now tracked there.
 
-- [x] **Step N1: Web Dashboard** → Phase 4 in UI_PLAN_WS.md
-- [x] **Step N2: Flow Graph Visualization** → Phase 5 in UI_PLAN_WS.md (Cytoscape.js)
+- [ ] **Step N1: Web Dashboard** → tracked in Phase 4 of UI_PLAN_WS.md
+- [ ] **Step N2: Flow Graph Visualization** → tracked in Phase 5 of UI_PLAN_WS.md (Cytoscape.js)
 - [ ] **Step N3: Real-time Stats Terminal UI (TUI)**
   - A `bubbletea` based TUI for the CLI to show live parsing progress and top talkers.
 

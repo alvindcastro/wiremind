@@ -2,7 +2,7 @@
 
 How the codebase is structured and how data flows through it.
 
-> For a higher-level overview and quick start, see [README.md](README.md).
+> For a higher-level overview and quick start, see [README.md](../README.md).
 > For running the stack end-to-end, see [RUNBOOK.md](RUNBOOK.md).
 
 ---
@@ -123,6 +123,24 @@ Located in `python/src/wiremind/`:
     - `HTTPAgent`: CLI user-agents (`curl`, `python-requests`), IOC-matched request hosts.
     - `LateralMovementAgent`: Internal RFC1918→RFC1918 flows on SMB/RPC ports (445/135/139), IOC-matched destination IPs.
     - `BeaconingAgent`: Flows flagged `is_beacon=true` by the Go engine; confidence derived from `beacon_jitter` (lower jitter = more regular = higher confidence).
+
+### Planned AI Cost Accounting
+
+The current specialists are mostly deterministic heuristics over Go API data.
+Future model-backed reasoning, RAG, critique, report, and fallback calls must use
+the provider-neutral cost plan in [AI_COSTING.md](AI_COSTING.md).
+
+Planned boundaries:
+
+- The Python runtime estimates token and cost impact before each provider call.
+- Pricing is loaded from config or a versioned catalog by provider, model,
+  currency, unit size, and effective date instead of hardcoded vendor prices.
+- Budget guards fail closed before network access when pricing is unknown or the
+  run, agent, call, or job budget is exhausted.
+- Provider usage is reconciled after successful calls and summarized by run,
+  job, agent, provider, model, and purpose.
+- Cost telemetry must avoid raw prompts, raw packet payloads, secrets, full PCAP
+  paths, and high-cardinality metric labels.
 
 ---
 
